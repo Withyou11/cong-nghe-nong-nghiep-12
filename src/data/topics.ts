@@ -1,4 +1,3 @@
-
 export interface Topic {
   id: number;
   title: string;
@@ -7,6 +6,7 @@ export interface Topic {
   quizzes: number;
   keywords: number;
   color: string;
+  backgroundImage: string;
 }
 
 export interface Lesson {
@@ -47,7 +47,8 @@ export const topics: Topic[] = [
     lessons: 8,
     quizzes: 5,
     keywords: 25,
-    color: "bg-green-500"
+    color: "bg-green-500",
+    backgroundImage: "https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?w=800&h=600&fit=crop"
   },
   {
     id: 2,
@@ -56,7 +57,8 @@ export const topics: Topic[] = [
     lessons: 10,
     quizzes: 7,
     keywords: 30,
-    color: "bg-emerald-500"
+    color: "bg-emerald-500",
+    backgroundImage: "https://images.unsplash.com/photo-1472396961693-142e6e269027?w=800&h=600&fit=crop"
   },
   {
     id: 3,
@@ -65,7 +67,8 @@ export const topics: Topic[] = [
     lessons: 9,
     quizzes: 6,
     keywords: 28,
-    color: "bg-teal-500"
+    color: "bg-teal-500",
+    backgroundImage: "https://images.unsplash.com/photo-1500673922987-e212871fec22?w=800&h=600&fit=crop"
   },
   {
     id: 4,
@@ -74,7 +77,8 @@ export const topics: Topic[] = [
     lessons: 7,
     quizzes: 4,
     keywords: 22,
-    color: "bg-blue-500"
+    color: "bg-blue-500",
+    backgroundImage: "https://images.unsplash.com/photo-1520637836862-4d197d17c735?w=800&h=600&fit=crop"
   },
   {
     id: 5,
@@ -83,7 +87,8 @@ export const topics: Topic[] = [
     lessons: 8,
     quizzes: 5,
     keywords: 26,
-    color: "bg-cyan-500"
+    color: "bg-cyan-500",
+    backgroundImage: "https://images.unsplash.com/photo-1583212292454-1fe6229603b7?w=800&h=600&fit=crop"
   },
   {
     id: 6,
@@ -92,7 +97,8 @@ export const topics: Topic[] = [
     lessons: 9,
     quizzes: 6,
     keywords: 24,
-    color: "bg-sky-500"
+    color: "bg-sky-500",
+    backgroundImage: "https://images.unsplash.com/photo-1535378917042-10a22c95931a?w=800&h=600&fit=crop"
   },
   {
     id: 7,
@@ -101,7 +107,8 @@ export const topics: Topic[] = [
     lessons: 8,
     quizzes: 5,
     keywords: 23,
-    color: "bg-indigo-500"
+    color: "bg-indigo-500",
+    backgroundImage: "https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=800&h=600&fit=crop"
   },
   {
     id: 8,
@@ -110,7 +117,8 @@ export const topics: Topic[] = [
     lessons: 11,
     quizzes: 8,
     keywords: 32,
-    color: "bg-purple-500"
+    color: "bg-purple-500",
+    backgroundImage: "https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=800&h=600&fit=crop"
   },
   {
     id: 9,
@@ -119,7 +127,8 @@ export const topics: Topic[] = [
     lessons: 9,
     quizzes: 6,
     keywords: 27,
-    color: "bg-pink-500"
+    color: "bg-pink-500",
+    backgroundImage: "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=800&h=600&fit=crop"
   },
   {
     id: 10,
@@ -128,7 +137,8 @@ export const topics: Topic[] = [
     lessons: 8,
     quizzes: 5,
     keywords: 25,
-    color: "bg-rose-500"
+    color: "bg-rose-500",
+    backgroundImage: "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=800&h=600&fit=crop"
   }
 ];
 

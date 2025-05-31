@@ -52,22 +52,24 @@ const TopicDetail = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center">
+      {/* Hero Section with Background Image */}
+      <div 
+        className="bg-cover bg-center relative h-96"
+        style={{ backgroundImage: `url(${topic.backgroundImage})` }}
+      >
+        <div className="absolute inset-0 bg-black bg-opacity-50"></div>
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 h-full flex items-center">
+          <div className="text-white">
             <Link to="/">
-              <Button variant="ghost" size="sm" className="mr-4">
+              <Button variant="ghost" size="sm" className="mb-4 text-white hover:bg-white hover:bg-opacity-20">
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Quay lại
               </Button>
             </Link>
-            <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
-                {topic.title}
-              </h1>
-              <p className="text-gray-600 mt-1">{topic.description}</p>
-            </div>
+            <h1 className="text-3xl md:text-5xl font-bold mb-4">
+              {topic.title}
+            </h1>
+            <p className="text-xl text-gray-200 max-w-2xl">{topic.description}</p>
           </div>
         </div>
       </div>
