@@ -1,6 +1,12 @@
-
+import React from 'react';
 import { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -9,24 +15,35 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { StatsCard } from '@/components/StatsCard';
 import { topics, lessons, quizzes, keywords } from '@/data/topics';
-import { 
-  Settings, 
-  BookOpen, 
-  Brain, 
-  Search, 
-  Users, 
+
+import {
+  Settings,
+  BookOpen,
+  Brain,
+  Search,
+  Users,
   BarChart3,
   Plus,
   Edit,
   Trash2,
   Eye,
-  Lock
+  Lock,
 } from 'lucide-react';
 import { toast } from 'sonner';
+
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { LessonForm } from '@/components/LessonForm';
 
 const Admin = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
+
+  const [showAddLessonModal, setShowAddLessonModal] = useState(false);
 
   // Mock statistics
   const totalLessons = topics.reduce((sum, topic) => sum + topic.lessons, 0);
@@ -66,7 +83,9 @@ const Admin = () => {
                   id="username"
                   type="text"
                   value={loginForm.username}
-                  onChange={(e) => setLoginForm({...loginForm, username: e.target.value})}
+                  onChange={(e) =>
+                    setLoginForm({ ...loginForm, username: e.target.value })
+                  }
                   placeholder="Nhập tên đăng nhập"
                   required
                 />
@@ -77,7 +96,9 @@ const Admin = () => {
                   id="password"
                   type="password"
                   value={loginForm.password}
-                  onChange={(e) => setLoginForm({...loginForm, password: e.target.value})}
+                  onChange={(e) =>
+                    setLoginForm({ ...loginForm, password: e.target.value })
+                  }
                   placeholder="Nhập mật khẩu"
                   required
                 />
@@ -112,7 +133,9 @@ const Admin = () => {
                 <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
                   Trang quản trị
                 </h1>
-                <p className="text-gray-600 mt-1">Quản lý nội dung và thống kê hệ thống</p>
+                <p className="text-gray-600 mt-1">
+                  Quản lý nội dung và thống kê hệ thống
+                </p>
               </div>
             </div>
             <Button variant="outline" onClick={() => setIsLoggedIn(false)}>
@@ -155,15 +178,24 @@ const Admin = () => {
         {/* Management Tabs */}
         <Tabs defaultValue="lessons" className="space-y-6">
           <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="lessons" className="flex items-center space-x-2">
+            <TabsTrigger
+              value="lessons"
+              className="flex items-center space-x-2"
+            >
               <BookOpen className="h-4 w-4" />
               <span>Bài học</span>
             </TabsTrigger>
-            <TabsTrigger value="quizzes" className="flex items-center space-x-2">
+            <TabsTrigger
+              value="quizzes"
+              className="flex items-center space-x-2"
+            >
               <Brain className="h-4 w-4" />
               <span>Bài tập</span>
             </TabsTrigger>
-            <TabsTrigger value="keywords" className="flex items-center space-x-2">
+            <TabsTrigger
+              value="keywords"
+              className="flex items-center space-x-2"
+            >
               <Search className="h-4 w-4" />
               <span>Từ khóa</span>
             </TabsTrigger>
@@ -180,9 +212,11 @@ const Admin = () => {
                 <div className="flex items-center justify-between">
                   <div>
                     <CardTitle>Quản lý bài học</CardTitle>
-                    <CardDescription>Tạo, sửa và xóa các bài học</CardDescription>
+                    <CardDescription>
+                      Tạo, sửa và xóa các bài học
+                    </CardDescription>
                   </div>
-                  <Button>
+                  <Button onClick={() => setShowAddLessonModal(true)}>
                     <Plus className="h-4 w-4 mr-2" />
                     Thêm bài học
                   </Button>
@@ -191,14 +225,19 @@ const Admin = () => {
               <CardContent>
                 <div className="space-y-4">
                   {lessons.map((lesson) => {
-                    const topic = topics.find(t => t.id === lesson.topicId);
+                    const topic = topics.find((t) => t.id === lesson.topicId);
                     return (
-                      <div key={lesson.id} className="flex items-center justify-between p-4 border rounded-lg">
+                      <div
+                        key={lesson.id}
+                        className="flex items-center justify-between p-4 border rounded-lg"
+                      >
                         <div>
                           <h3 className="font-medium">{lesson.title}</h3>
                           <div className="flex items-center space-x-2 mt-1">
                             <Badge variant="secondary">{topic?.title}</Badge>
-                            <span className="text-sm text-gray-500">{lesson.duration}</span>
+                            <span className="text-sm text-gray-500">
+                              {lesson.duration}
+                            </span>
                           </div>
                         </div>
                         <div className="flex space-x-2">
@@ -227,7 +266,9 @@ const Admin = () => {
                 <div className="flex items-center justify-between">
                   <div>
                     <CardTitle>Quản lý bài tập trắc nghiệm</CardTitle>
-                    <CardDescription>Tạo, sửa và xóa các bài tập</CardDescription>
+                    <CardDescription>
+                      Tạo, sửa và xóa các bài tập
+                    </CardDescription>
                   </div>
                   <Button>
                     <Plus className="h-4 w-4 mr-2" />
@@ -238,14 +279,19 @@ const Admin = () => {
               <CardContent>
                 <div className="space-y-4">
                   {quizzes.map((quiz) => {
-                    const topic = topics.find(t => t.id === quiz.topicId);
+                    const topic = topics.find((t) => t.id === quiz.topicId);
                     return (
-                      <div key={quiz.id} className="flex items-center justify-between p-4 border rounded-lg">
+                      <div
+                        key={quiz.id}
+                        className="flex items-center justify-between p-4 border rounded-lg"
+                      >
                         <div>
                           <h3 className="font-medium">{quiz.title}</h3>
                           <div className="flex items-center space-x-2 mt-1">
                             <Badge variant="secondary">{topic?.title}</Badge>
-                            <span className="text-sm text-gray-500">{quiz.questions.length} câu hỏi</span>
+                            <span className="text-sm text-gray-500">
+                              {quiz.questions.length} câu hỏi
+                            </span>
                           </div>
                         </div>
                         <div className="flex space-x-2">
@@ -274,7 +320,9 @@ const Admin = () => {
                 <div className="flex items-center justify-between">
                   <div>
                     <CardTitle>Quản lý từ khóa</CardTitle>
-                    <CardDescription>Tạo, sửa và xóa các từ khóa</CardDescription>
+                    <CardDescription>
+                      Tạo, sửa và xóa các từ khóa
+                    </CardDescription>
                   </div>
                   <Button>
                     <Plus className="h-4 w-4 mr-2" />
@@ -285,9 +333,12 @@ const Admin = () => {
               <CardContent>
                 <div className="space-y-4">
                   {keywords.map((keyword) => {
-                    const topic = topics.find(t => t.id === keyword.topicId);
+                    const topic = topics.find((t) => t.id === keyword.topicId);
                     return (
-                      <div key={keyword.id} className="flex items-center justify-between p-4 border rounded-lg">
+                      <div
+                        key={keyword.id}
+                        className="flex items-center justify-between p-4 border rounded-lg"
+                      >
                         <div>
                           <h3 className="font-medium">{keyword.term}</h3>
                           <div className="flex items-center space-x-2 mt-1">
@@ -323,7 +374,10 @@ const Admin = () => {
                 <CardContent>
                   <div className="space-y-4">
                     {topics.map((topic) => (
-                      <div key={topic.id} className="flex items-center justify-between p-3 border rounded">
+                      <div
+                        key={topic.id}
+                        className="flex items-center justify-between p-3 border rounded"
+                      >
                         <div>
                           <h4 className="font-medium">{topic.title}</h4>
                           <div className="flex space-x-4 text-sm text-gray-600 mt-1">
@@ -352,7 +406,9 @@ const Admin = () => {
                         <BookOpen className="h-4 w-4 text-green-600" />
                       </div>
                       <div>
-                        <p className="text-sm font-medium">Bài học mới được tạo</p>
+                        <p className="text-sm font-medium">
+                          Bài học mới được tạo
+                        </p>
                         <p className="text-xs text-gray-500">2 giờ trước</p>
                       </div>
                     </div>
@@ -361,7 +417,9 @@ const Admin = () => {
                         <Brain className="h-4 w-4 text-blue-600" />
                       </div>
                       <div>
-                        <p className="text-sm font-medium">Bài tập được cập nhật</p>
+                        <p className="text-sm font-medium">
+                          Bài tập được cập nhật
+                        </p>
                         <p className="text-xs text-gray-500">1 ngày trước</p>
                       </div>
                     </div>
@@ -370,7 +428,9 @@ const Admin = () => {
                         <Search className="h-4 w-4 text-purple-600" />
                       </div>
                       <div>
-                        <p className="text-sm font-medium">Từ khóa mới được thêm</p>
+                        <p className="text-sm font-medium">
+                          Từ khóa mới được thêm
+                        </p>
                         <p className="text-xs text-gray-500">3 ngày trước</p>
                       </div>
                     </div>
@@ -381,6 +441,22 @@ const Admin = () => {
           </TabsContent>
         </Tabs>
       </div>
+
+      <Dialog open={showAddLessonModal} onOpenChange={setShowAddLessonModal}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Tạo bài học mới</DialogTitle>
+          </DialogHeader>
+          <LessonForm
+            onSuccess={() => {
+              setShowAddLessonModal(false);
+              // Refresh danh sách bài học
+              // TODO: Implement refresh logic
+            }}
+            onCancel={() => setShowAddLessonModal(false)}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

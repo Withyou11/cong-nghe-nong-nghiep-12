@@ -1,21 +1,33 @@
-
 import { useParams, Link } from 'react-router-dom';
+import { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { topics, lessons } from '@/data/topics';
 import { ArrowLeft, Clock, BookOpen, ChevronRight } from 'lucide-react';
 
 const Lessons = () => {
   const { id } = useParams();
-  const topic = topics.find(t => t.id === parseInt(id || '0'));
-  const topicLessons = lessons.filter(l => l.topicId === parseInt(id || '0'));
+  const topic = topics.find((t) => t.id === parseInt(id || '0'));
+  const topicLessons = lessons.filter((l) => l.topicId === parseInt(id || '0'));
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
 
   if (!topic) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">Không tìm thấy chủ đề</h1>
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">
+            Không tìm thấy chủ đề
+          </h1>
           <Link to="/">
             <Button>Quay về trang chủ</Button>
           </Link>
@@ -52,7 +64,9 @@ const Lessons = () => {
         <Card className="mb-8">
           <CardHeader>
             <div className="flex items-center">
-              <div className={`w-12 h-12 ${topic.color} rounded-lg flex items-center justify-center mr-4`}>
+              <div
+                className={`w-12 h-12 ${topic.color} rounded-lg flex items-center justify-center mr-4`}
+              >
                 <BookOpen className="h-6 w-6 text-white" />
               </div>
               <div>
@@ -63,9 +77,7 @@ const Lessons = () => {
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap gap-2">
-              <Badge variant="secondary">
-                {topicLessons.length} bài học
-              </Badge>
+              <Badge variant="secondary">{topicLessons.length} bài học</Badge>
               <Badge variant="secondary">
                 Thời gian: {topicLessons.length * 45} phút
               </Badge>
@@ -83,7 +95,9 @@ const Lessons = () => {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-4">
                         <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center group-hover:bg-green-200 transition-colors">
-                          <span className="text-green-600 font-semibold">{index + 1}</span>
+                          <span className="text-green-600 font-semibold">
+                            {index + 1}
+                          </span>
                         </div>
                         <div>
                           <h3 className="text-lg font-semibold group-hover:text-green-600 transition-colors">
@@ -112,9 +126,7 @@ const Lessons = () => {
                   Các bài học cho chủ đề này đang được cập nhật
                 </p>
                 <Link to={`/topic/${id}`}>
-                  <Button variant="outline">
-                    Quay lại chủ đề
-                  </Button>
+                  <Button variant="outline">Quay lại chủ đề</Button>
                 </Link>
               </CardContent>
             </Card>

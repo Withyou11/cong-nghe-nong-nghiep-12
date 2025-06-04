@@ -1,22 +1,21 @@
-
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { TopicCard } from '@/components/TopicCard';
 import { StatsCard } from '@/components/StatsCard';
 import { topics } from '@/data/topics';
-import { 
-  BookOpen, 
-  Brain, 
-  Search, 
-  Users, 
-  Target, 
+import {
+  BookOpen,
+  Brain,
+  Search,
+  Users,
+  Target,
   Award,
   MessageCircle,
   FileText,
   ChevronRight,
   Leaf,
-  Fish
+  Fish,
 } from 'lucide-react';
 
 const Home = () => {
@@ -27,42 +26,42 @@ const Home = () => {
   const features = [
     {
       icon: BookOpen,
-      title: "Danh sách bài học",
-      description: "Học tập theo từng chủ đề với nội dung chi tiết và dễ hiểu",
-      color: "text-green-600"
+      title: 'Danh sách bài học',
+      description: 'Học tập theo từng chủ đề với nội dung chi tiết và dễ hiểu',
+      color: 'text-green-600',
     },
     {
       icon: Brain,
-      title: "Bài tập trắc nghiệm",
-      description: "Kiểm tra kiến thức với hệ thống chấm điểm tự động",
-      color: "text-blue-600"
+      title: 'Bài tập trắc nghiệm',
+      description: 'Kiểm tra kiến thức với hệ thống chấm điểm tự động',
+      color: 'text-blue-600',
     },
     {
       icon: Search,
-      title: "Tra cứu từ khóa",
-      description: "Tìm kiếm và tra cứu thuật ngữ chuyên ngành nhanh chóng",
-      color: "text-purple-600"
+      title: 'Tra cứu từ khóa',
+      description: 'Tìm kiếm và tra cứu thuật ngữ chuyên ngành nhanh chóng',
+      color: 'text-purple-600',
     },
     {
       icon: FileText,
-      title: "Đề luyện thi THPTQG",
-      description: "Luyện tập với đề thi mẫu để chuẩn bị cho kỳ thi quan trọng",
-      color: "text-orange-600"
+      title: 'Đề luyện thi THPTQG',
+      description: 'Luyện tập với đề thi mẫu để chuẩn bị cho kỳ thi quan trọng',
+      color: 'text-orange-600',
     },
     {
       icon: MessageCircle,
-      title: "Chatbot hỗ trợ",
-      description: "Hỗ trợ giải đáp thắc mắc 24/7 về nội dung học tập",
-      color: "text-indigo-600"
-    }
+      title: 'Chatbot hỗ trợ',
+      description: 'Hỗ trợ giải đáp thắc mắc 24/7 về nội dung học tập',
+      color: 'text-indigo-600',
+    },
   ];
 
   const goals = [
-    "Trang bị kiến thức cơ bản về lâm nghiệp và thủy sản",
-    "Phát triển kỹ năng thực hành trong lĩnh vực nông nghiệp",
-    "Nâng cao nhận thức về bảo vệ môi trường và phát triển bền vững",
-    "Chuẩn bị kiến thức cho kỳ thi THPT Quốc gia",
-    "Định hướng nghề nghiệp trong lĩnh vực công nghệ nông nghiệp"
+    'Trang bị kiến thức cơ bản về lâm nghiệp và thủy sản',
+    'Phát triển kỹ năng thực hành trong lĩnh vực nông nghiệp',
+    'Nâng cao nhận thức về bảo vệ môi trường và phát triển bền vững',
+    'Chuẩn bị kiến thức cho kỳ thi THPT Quốc gia',
+    'Định hướng nghề nghiệp trong lĩnh vực công nghệ nông nghiệp',
   ];
 
   return (
@@ -79,22 +78,31 @@ const Home = () => {
                 <Fish className="h-8 w-8" />
               </div>
             </div>
-            <h1 className="text-4xl md:text-6xl font-bold mb-6">
-              Website học tập công nghệ
-              <span className="block text-yellow-300">định hướng nông nghiệp 12</span>
+            <h1 className="text-4xl md:text-6xl font-bold mb-8">
+              WEBSITE HỌC TẬP CÔNG NGHỆ
+              <span className="block text-yellow-300 mt-4">
+                ĐỊNH HƯỚNG NÔNG NGHIỆP 12
+              </span>
             </h1>
             <p className="text-xl md:text-2xl mb-8 text-green-100 max-w-3xl mx-auto">
-              Nền tảng học tập trực tuyến dành cho học sinh lớp 12 tìm hiểu về công nghệ lâm nghiệp và thủy sản
+              Nền tảng học tập trực tuyến dành cho học sinh lớp 12 tìm hiểu về
+              công nghệ lâm nghiệp và thủy sản
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link to="/topic/1">
-                <Button size="lg" className="bg-white text-green-600 hover:bg-gray-100">
+                <Button
+                  size="lg"
+                  className="bg-white text-green-600 hover:bg-gray-100"
+                >
                   Bắt đầu học ngay
                   <ChevronRight className="ml-2 h-4 w-4" />
                 </Button>
               </Link>
               <Link to="/chat">
-                <Button size="lg" variant="outline" className="border-white text-white hover:bg-white hover:text-green-600">
+                <Button
+                  size="lg"
+                  className="bg-white text-green-600 hover:bg-gray-100"
+                >
                   Chatbot hỗ trợ
                   <MessageCircle className="ml-2 h-4 w-4" />
                 </Button>
@@ -138,10 +146,11 @@ const Home = () => {
               Các chủ đề học tập
             </h2>
             <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              Khám phá 10 chủ đề chính về lâm nghiệp và thủy sản với nội dung phong phú và cập nhật
+              Khám phá 10 chủ đề chính về lâm nghiệp và thủy sản với nội dung
+              phong phú và cập nhật
             </p>
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {topics.map((topic) => (
               <TopicCard key={topic.id} topic={topic} />
@@ -161,19 +170,24 @@ const Home = () => {
               Hệ thống học tập toàn diện với các công cụ hỗ trợ hiện đại
             </p>
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {features.map((feature, index) => {
               const Icon = feature.icon;
               return (
-                <Card key={index} className="text-center hover:shadow-lg transition-shadow">
+                <Card
+                  key={index}
+                  className="text-center hover:shadow-lg transition-shadow"
+                >
                   <CardContent className="p-8">
                     <div className="flex justify-center mb-4">
                       <div className="p-4 bg-gray-100 rounded-full">
                         <Icon className={`h-8 w-8 ${feature.color}`} />
                       </div>
                     </div>
-                    <h3 className="text-xl font-semibold mb-3">{feature.title}</h3>
+                    <h3 className="text-xl font-semibold mb-3">
+                      {feature.title}
+                    </h3>
                     <p className="text-gray-600">{feature.description}</p>
                   </CardContent>
                 </Card>
@@ -191,10 +205,11 @@ const Home = () => {
               Mục tiêu giáo dục
             </h2>
             <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              Những mục tiêu cụ thể mà chúng tôi hướng đến trong việc giáo dục học sinh
+              Những mục tiêu cụ thể mà chúng tôi hướng đến trong việc giáo dục
+              học sinh
             </p>
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {goals.map((goal, index) => (
               <Card key={index} className="hover:shadow-lg transition-shadow">
