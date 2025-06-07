@@ -9,13 +9,22 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { topics, lessons } from '@/data/topics';
-import { ArrowLeft, Clock, BookOpen, ChevronRight } from 'lucide-react';
+import { topics } from '@/data/topics';
+import {
+  ArrowLeft,
+  Clock,
+  BookOpen,
+  ChevronRight,
+  Loader2,
+} from 'lucide-react';
+import { useLessons } from '@/hooks/useLessons';
 
 const Lessons = () => {
   const { id } = useParams();
   const topic = topics.find((t) => t.id === parseInt(id || '0'));
-  const topicLessons = lessons.filter((l) => l.topicId === parseInt(id || '0'));
+  const { lessons, isLoading } = useLessons();
+  const topicLessons =
+    lessons?.filter((l) => l.topic_id === parseInt(id || '0')) || [];
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -87,7 +96,11 @@ const Lessons = () => {
 
         {/* Lessons List */}
         <div className="space-y-4">
-          {topicLessons.length > 0 ? (
+          {isLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+            </div>
+          ) : topicLessons.length > 0 ? (
             topicLessons.map((lesson, index) => (
               <Link key={lesson.id} to={`/lesson/${lesson.id}`}>
                 <Card className="hover:shadow-lg transition-all duration-300 hover:-translate-y-1 cursor-pointer group">

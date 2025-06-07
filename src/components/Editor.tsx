@@ -1,9 +1,9 @@
-// src/components/Editor.tsx
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
 import Image from '@tiptap/extension-image';
 import Placeholder from '@tiptap/extension-placeholder';
+import type { JSONContent } from '@tiptap/core';
 import { Button } from '@/components/ui/button';
 import {
   Bold,
@@ -15,10 +15,11 @@ import {
   Link as LinkIcon,
   Image as ImageIcon,
 } from 'lucide-react';
+import { useEffect } from 'react';
 
 interface EditorProps {
-  content: any;
-  onChange: (content: any) => void;
+  content: JSONContent | null;
+  onChange: (content: JSONContent) => void;
 }
 
 export function Editor({ content, onChange }: EditorProps) {
@@ -33,7 +34,7 @@ export function Editor({ content, onChange }: EditorProps) {
         placeholder: 'Bắt đầu viết nội dung bài học...',
       }),
     ],
-    content,
+    content: content || undefined,
     onUpdate: ({ editor }) => {
       onChange(editor.getJSON());
     },
@@ -43,8 +44,25 @@ export function Editor({ content, onChange }: EditorProps) {
     return null;
   }
 
+  useEffect(() => {
+    if (editor) {
+      editor.view.dom.style.minHeight = '300px';
+      editor.view.dom.style.height = '100%';
+      const dom = editor.view.dom;
+      dom.style.border = 'none';
+      dom.style.outline = 'none';
+      dom.style.boxShadow = 'none';
+    }
+  }, [editor]);
+
+  useEffect(() => {
+    if (editor && content) {
+      editor.commands.setContent(content);
+    }
+  }, [editor, content]);
+
   return (
-    <div className="border rounded-lg">
+    <div className="border rounded-lg min-h-[300px] flex flex-col">
       <div className="border-b p-2 flex gap-2">
         <Button
           variant="ghost"
@@ -124,10 +142,27 @@ export function Editor({ content, onChange }: EditorProps) {
           <ImageIcon className="h-4 w-4" />
         </Button>
       </div>
-      <EditorContent
-        editor={editor}
-        className="prose max-w-none p-4 min-h-[300px]"
-      />
+      <div
+        className="flex-1 p-4 cursor-text overflow-y-auto"
+        style={{
+          minHeight: 300,
+          maxHeight: 300,
+          height: '100%',
+        }}
+      >
+        <EditorContent
+          editor={editor}
+          style={{
+            minHeight: 300,
+            height: '100%',
+            outline: 'none',
+            cursor: 'text',
+            caretColor: 'black', // màu caret rõ ràng
+            userSelect: 'text', // cho phép chọn text
+            whiteSpace: 'pre-wrap', // để giữ xuống dòng
+          }}
+        />
+      </div>
     </div>
   );
 }

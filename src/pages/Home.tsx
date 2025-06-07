@@ -16,12 +16,22 @@ import {
   ChevronRight,
   Leaf,
   Fish,
+  Loader2,
 } from 'lucide-react';
+import { useLessons } from '@/hooks/useLessons';
+import { useQuizzes } from '@/hooks/useQuizzes';
+import { useKeywords } from '@/hooks/useKeywords';
 
 const Home = () => {
-  const totalLessons = topics.reduce((sum, topic) => sum + topic.lessons, 0);
-  const totalQuizzes = topics.reduce((sum, topic) => sum + topic.quizzes, 0);
-  const totalKeywords = topics.reduce((sum, topic) => sum + topic.keywords, 0);
+  const { lessons, isLoading: isLoadingLessons } = useLessons();
+  const { quizzes, isLoading: isLoadingQuizzes } = useQuizzes();
+  const { keywords, isLoading: isLoadingKeywords } = useKeywords();
+
+  const totalLessons = lessons?.length || 0;
+  const totalQuizzes = quizzes?.length || 0;
+  const totalKeywords = keywords?.length || 0;
+
+  const isLoading = isLoadingLessons || isLoadingQuizzes || isLoadingKeywords;
 
   const features = [
     {
@@ -115,26 +125,32 @@ const Home = () => {
       {/* Stats Section */}
       <section className="py-12 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <StatsCard
-              title="Chủ đề học tập"
-              value={topics.length.toString()}
-              icon={Target}
-              color="bg-green-500"
-            />
-            <StatsCard
-              title="Bài học"
-              value={totalLessons.toString()}
-              icon={BookOpen}
-              color="bg-blue-500"
-            />
-            <StatsCard
-              title="Câu hỏi trắc nghiệm"
-              value={totalQuizzes.toString()}
-              icon={Brain}
-              color="bg-purple-500"
-            />
-          </div>
+          {isLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <StatsCard
+                title="Chủ đề học tập"
+                value={topics.length.toString()}
+                icon={Target}
+                color="bg-green-500"
+              />
+              <StatsCard
+                title="Bài học"
+                value={totalLessons.toString()}
+                icon={BookOpen}
+                color="bg-blue-500"
+              />
+              <StatsCard
+                title="Câu hỏi trắc nghiệm"
+                value={totalQuizzes.toString()}
+                icon={Brain}
+                color="bg-purple-500"
+              />
+            </div>
+          )}
         </div>
       </section>
 
@@ -146,14 +162,26 @@ const Home = () => {
               Các chủ đề học tập
             </h2>
             <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              Khám phá 10 chủ đề chính về lâm nghiệp và thủy sản với nội dung
-              phong phú và cập nhật
+              Khám phá {topics.length} chủ đề chính về lâm nghiệp và thủy sản
+              với nội dung phong phú và cập nhật
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {topics.map((topic) => (
-              <TopicCard key={topic.id} topic={topic} />
+              <TopicCard
+                key={topic.id}
+                topic={{
+                  ...topic,
+                  lessons:
+                    lessons?.filter((l) => l.topic_id === topic.id).length || 0,
+                  quizzes:
+                    quizzes?.filter((q) => q.topic_id === topic.id).length || 0,
+                  keywords:
+                    keywords?.filter((k) => k.topic_id === topic.id).length ||
+                    0,
+                }}
+              />
             ))}
           </div>
         </div>

@@ -1,33 +1,68 @@
-
 import { useParams, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { lessons, topics } from '@/data/topics';
-import { ArrowLeft, Clock, BookOpen, ChevronLeft, ChevronRight } from 'lucide-react';
+import { topics } from '@/data/topics';
+import {
+  ArrowLeft,
+  Clock,
+  BookOpen,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+} from 'lucide-react';
+import { useLessons } from '@/hooks/useLessons';
+import { ReadOnlyEditor } from '@/components/ReadOnlyEditor';
 
 const LessonDetail = () => {
   const { id } = useParams();
-  const lesson = lessons.find(l => l.id === parseInt(id || '0'));
-  const topic = lesson ? topics.find(t => t.id === lesson.topicId) : null;
-  
+  const { lessons, isLoading } = useLessons();
+  const lesson = lessons?.find((l) => l.id === parseInt(id || '0'));
+  const topic = lesson ? topics.find((t) => t.id === lesson.topic_id) : null;
+
   // Find previous and next lessons in the same topic
-  const topicLessons = lesson ? lessons.filter(l => l.topicId === lesson.topicId) : [];
-  const currentIndex = topicLessons.findIndex(l => l.id === lesson?.id);
-  const previousLesson = currentIndex > 0 ? topicLessons[currentIndex - 1] : null;
-  const nextLesson = currentIndex < topicLessons.length - 1 ? topicLessons[currentIndex + 1] : null;
+  const topicLessons = lesson
+    ? lessons?.filter((l) => l.topic_id === lesson.topic_id) || []
+    : [];
+  const currentIndex = topicLessons.findIndex((l) => l.id === lesson?.id);
+  const previousLesson =
+    currentIndex > 0 ? topicLessons[currentIndex - 1] : null;
+  const nextLesson =
+    currentIndex < topicLessons.length - 1
+      ? topicLessons[currentIndex + 1]
+      : null;
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-gray-400 mx-auto mb-4" />
+          <p className="text-gray-600">Đang tải nội dung bài học...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!lesson || !topic) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">Không tìm thấy bài học</h1>
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">
+            Không tìm thấy bài học
+          </h1>
           <Link to="/">
             <Button>Quay về trang chủ</Button>
           </Link>
         </div>
       </div>
     );
+  }
+
+  let parsedContent: any = null;
+  try {
+    parsedContent = JSON.parse(lesson.content);
+  } catch (error) {
+    console.error('Error parsing lesson content:', error);
   }
 
   return (
@@ -65,17 +100,15 @@ const LessonDetail = () => {
         {/* Lesson Content */}
         <Card className="mb-8">
           <CardContent className="p-8">
-            <div className="prose prose-lg max-w-none">
-              <div 
-                className="lesson-content"
-                dangerouslySetInnerHTML={{ 
-                  __html: lesson.content.replace(/\n/g, '<br/>').replace(/#{1,6} /g, '<h2>').replace(/<h2>/g, '<h2 class="text-2xl font-bold mb-4 text-gray-900">').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') 
-                }} 
-              />
-            </div>
+            {parsedContent ? (
+              <ReadOnlyEditor content={parsedContent} />
+            ) : (
+              <p className="text-red-500">
+                Không thể hiển thị nội dung bài học
+              </p>
+            )}
           </CardContent>
         </Card>
-
         {/* Navigation */}
         <div className="flex justify-between items-center">
           <div className="flex-1">

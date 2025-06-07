@@ -1,5 +1,5 @@
 import React from 'react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Card,
   CardContent,
@@ -14,7 +14,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { StatsCard } from '@/components/StatsCard';
-import { topics, lessons, quizzes, keywords } from '@/data/topics';
+import { useLessons } from '@/hooks/useLessons';
+import { useStats } from '@/hooks/useStats';
+import { useQuizzes } from '@/hooks/useQuizzes';
+import { QuizForm, QuizData } from '@/components/QuizForm';
 
 import {
   Settings,
@@ -28,6 +31,7 @@ import {
   Trash2,
   Eye,
   Lock,
+  Loader2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -38,30 +42,49 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { LessonForm } from '@/components/LessonForm';
+import { Lesson } from '@/lib/api';
 
 const Admin = () => {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(() => {
+    return localStorage.getItem('adminLoggedIn') === 'true';
+  });
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
 
   const [showAddLessonModal, setShowAddLessonModal] = useState(false);
+  const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
+  const [showEditLessonModal, setShowEditLessonModal] = useState(false);
+  const [showQuizManagementModal, setShowQuizManagementModal] = useState(false);
+  const [showEditQuizModal, setShowEditQuizModal] = useState(false);
+  const [selectedQuiz, setSelectedQuiz] = useState<QuizData | null>(null);
 
-  // Mock statistics
-  const totalLessons = topics.reduce((sum, topic) => sum + topic.lessons, 0);
-  const totalQuizzes = topics.reduce((sum, topic) => sum + topic.quizzes, 0);
-  const totalKeywords = topics.reduce((sum, topic) => sum + topic.keywords, 0);
-  const totalStudents = 245; // Mock data
+  const { lessons, isLoading: isLoadingLessons, deleteLesson } = useLessons();
+  const { quizzes, isLoading: isLoadingQuizzes } = useQuizzes();
+  const { stats, topicStats, isLoading: isLoadingStats } = useStats();
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     if (loginForm.username === 'giaovien' && loginForm.password === '123456') {
       setIsLoggedIn(true);
+      localStorage.setItem('adminLoggedIn', 'true');
       toast.success('Đăng nhập thành công!');
     } else {
       toast.error('Tên đăng nhập hoặc mật khẩu không đúng!');
     }
   };
 
-  // Login form
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+    localStorage.removeItem('adminLoggedIn');
+    toast.success('Đăng xuất thành công!');
+  };
+
+  const handleQuizSubmit = (data: QuizData) => {
+    // TODO: Implement quiz submission logic
+    console.log('Quiz data:', data);
+    toast.success('Bài tập đã được lưu thành công!');
+    setShowEditQuizModal(false);
+  };
+
   if (!isLoggedIn) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -118,7 +141,6 @@ const Admin = () => {
     );
   }
 
-  // Admin dashboard
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -138,7 +160,7 @@ const Admin = () => {
                 </p>
               </div>
             </div>
-            <Button variant="outline" onClick={() => setIsLoggedIn(false)}>
+            <Button variant="outline" onClick={handleLogout}>
               Đăng xuất
             </Button>
           </div>
@@ -151,25 +173,25 @@ const Admin = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <StatsCard
             title="Tổng số học sinh"
-            value={totalStudents.toString()}
+            value="245"
             icon={Users}
             color="bg-blue-500"
           />
           <StatsCard
             title="Bài học"
-            value={totalLessons.toString()}
+            value={stats?.totalLessons.toString() || '0'}
             icon={BookOpen}
             color="bg-green-500"
           />
           <StatsCard
             title="Bài tập"
-            value={totalQuizzes.toString()}
+            value={stats?.totalQuizzes.toString() || '0'}
             icon={Brain}
             color="bg-purple-500"
           />
           <StatsCard
             title="Từ khóa"
-            value={totalKeywords.toString()}
+            value={stats?.totalKeywords.toString() || '0'}
             icon={Search}
             color="bg-orange-500"
           />
@@ -223,10 +245,13 @@ const Admin = () => {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {lessons.map((lesson) => {
-                    const topic = topics.find((t) => t.id === lesson.topicId);
-                    return (
+                {isLoadingLessons ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {lessons?.map((lesson) => (
                       <div
                         key={lesson.id}
                         className="flex items-center justify-between p-4 border rounded-lg"
@@ -234,27 +259,52 @@ const Admin = () => {
                         <div>
                           <h3 className="font-medium">{lesson.title}</h3>
                           <div className="flex items-center space-x-2 mt-1">
-                            <Badge variant="secondary">{topic?.title}</Badge>
+                            <Badge variant="secondary">
+                              {lesson.topics?.title}
+                            </Badge>
                             <span className="text-sm text-gray-500">
                               {lesson.duration}
                             </span>
                           </div>
                         </div>
                         <div className="flex space-x-2">
-                          <Button size="sm" variant="outline">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setSelectedLesson(lesson)}
+                          >
                             <Eye className="h-4 w-4" />
                           </Button>
-                          <Button size="sm" variant="outline">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setSelectedLesson(lesson);
+                              setShowEditLessonModal(true);
+                            }}
+                          >
                             <Edit className="h-4 w-4" />
                           </Button>
-                          <Button size="sm" variant="outline">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              if (
+                                window.confirm(
+                                  'Bạn có chắc chắn muốn xóa bài học này?'
+                                )
+                              ) {
+                                deleteLesson.mutate(lesson.id);
+                              }
+                            }}
+                          >
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -267,48 +317,58 @@ const Admin = () => {
                   <div>
                     <CardTitle>Quản lý bài tập trắc nghiệm</CardTitle>
                     <CardDescription>
-                      Tạo, sửa và xóa các bài tập
+                      Quản lý bài tập cho từng bài học
                     </CardDescription>
                   </div>
-                  <Button>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Thêm bài tập
-                  </Button>
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {quizzes.map((quiz) => {
-                    const topic = topics.find((t) => t.id === quiz.topicId);
-                    return (
-                      <div
-                        key={quiz.id}
-                        className="flex items-center justify-between p-4 border rounded-lg"
-                      >
-                        <div>
-                          <h3 className="font-medium">{quiz.title}</h3>
-                          <div className="flex items-center space-x-2 mt-1">
-                            <Badge variant="secondary">{topic?.title}</Badge>
-                            <span className="text-sm text-gray-500">
-                              {quiz.questions.length} câu hỏi
-                            </span>
+                {isLoadingLessons || isLoadingQuizzes ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {lessons?.map((lesson) => {
+                      const lessonQuizzes =
+                        quizzes?.filter((q) => q.lesson_id === lesson.id) || [];
+                      return (
+                        <div
+                          key={lesson.id}
+                          className="border rounded-lg overflow-hidden"
+                        >
+                          <div className="bg-gray-50 p-4 border-b">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <h3 className="font-medium text-lg">
+                                  {lesson.title}
+                                </h3>
+                                <div className="flex items-center space-x-2 mt-1">
+                                  <Badge variant="secondary">
+                                    {lessonQuizzes.length} bài tập
+                                  </Badge>
+                                  <span className="text-sm text-gray-500">
+                                    {lesson.duration}
+                                  </span>
+                                </div>
+                              </div>
+                              <Button
+                                variant="outline"
+                                onClick={() => {
+                                  setSelectedLesson(lesson);
+                                  setShowQuizManagementModal(true);
+                                }}
+                              >
+                                <Settings className="h-4 w-4 mr-2" />
+                                Quản lý bài tập
+                              </Button>
+                            </div>
                           </div>
                         </div>
-                        <div className="flex space-x-2">
-                          <Button size="sm" variant="outline">
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button size="sm" variant="outline">
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button size="sm" variant="outline">
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                      );
+                    })}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -331,21 +391,24 @@ const Admin = () => {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {keywords.map((keyword) => {
-                    const topic = topics.find((t) => t.id === keyword.topicId);
-                    return (
+                {isLoadingStats ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {topicStats?.map((topic) => (
                       <div
-                        key={keyword.id}
+                        key={topic.id}
                         className="flex items-center justify-between p-4 border rounded-lg"
                       >
                         <div>
-                          <h3 className="font-medium">{keyword.term}</h3>
+                          <h3 className="font-medium">{topic.title}</h3>
                           <div className="flex items-center space-x-2 mt-1">
-                            <Badge variant="secondary">{topic?.title}</Badge>
-                            <p className="text-sm text-gray-600 max-w-md truncate">
-                              {keyword.definition}
-                            </p>
+                            <Badge variant="secondary">{topic.title}</Badge>
+                            <span className="text-sm text-gray-500">
+                              {topic.keywords} từ khóa
+                            </span>
                           </div>
                         </div>
                         <div className="flex space-x-2">
@@ -357,9 +420,9 @@ const Admin = () => {
                           </Button>
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -372,26 +435,32 @@ const Admin = () => {
                   <CardTitle>Thống kê theo chủ đề</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
-                    {topics.map((topic) => (
-                      <div
-                        key={topic.id}
-                        className="flex items-center justify-between p-3 border rounded"
-                      >
-                        <div>
-                          <h4 className="font-medium">{topic.title}</h4>
-                          <div className="flex space-x-4 text-sm text-gray-600 mt-1">
-                            <span>{topic.lessons} bài học</span>
-                            <span>{topic.quizzes} bài tập</span>
-                            <span>{topic.keywords} từ khóa</span>
+                  {isLoadingStats ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {topicStats?.map((topic) => (
+                        <div
+                          key={topic.id}
+                          className="flex items-center justify-between p-3 border rounded"
+                        >
+                          <div>
+                            <h4 className="font-medium">{topic.title}</h4>
+                            <div className="flex space-x-4 text-sm text-gray-600 mt-1">
+                              <span>{topic.lessons} bài học</span>
+                              <span>{topic.quizzes} bài tập</span>
+                              <span>{topic.keywords} từ khóa</span>
+                            </div>
                           </div>
+                          <Badge variant="outline">
+                            {Math.round(Math.random() * 50 + 50)}% hoàn thành
+                          </Badge>
                         </div>
-                        <Badge variant="outline">
-                          {Math.round(Math.random() * 50 + 50)}% hoàn thành
-                        </Badge>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
@@ -442,6 +511,7 @@ const Admin = () => {
         </Tabs>
       </div>
 
+      {/* Add Lesson Modal */}
       <Dialog open={showAddLessonModal} onOpenChange={setShowAddLessonModal}>
         <DialogContent className="max-w-4xl">
           <DialogHeader>
@@ -450,10 +520,155 @@ const Admin = () => {
           <LessonForm
             onSuccess={() => {
               setShowAddLessonModal(false);
-              // Refresh danh sách bài học
-              // TODO: Implement refresh logic
             }}
             onCancel={() => setShowAddLessonModal(false)}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Lesson Modal */}
+      <Dialog open={showEditLessonModal} onOpenChange={setShowEditLessonModal}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Chỉnh sửa bài học</DialogTitle>
+          </DialogHeader>
+          <LessonForm
+            lesson={selectedLesson || undefined}
+            onSuccess={() => {
+              setShowEditLessonModal(false);
+              setSelectedLesson(null);
+            }}
+            onCancel={() => {
+              setShowEditLessonModal(false);
+              setSelectedLesson(null);
+            }}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* Quiz Management Modal */}
+      <Dialog
+        open={showQuizManagementModal}
+        onOpenChange={setShowQuizManagementModal}
+      >
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Quản lý bài tập - {selectedLesson?.title}</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="flex justify-end">
+              <Button
+                onClick={() => {
+                  setSelectedQuiz({
+                    question: '',
+                    options: ['', '', '', ''],
+                    correctAnswer: 0,
+                  });
+                  setShowEditQuizModal(true);
+                }}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Thêm bài tập mới
+              </Button>
+            </div>
+
+            {quizzes
+              ?.filter((q) => q.lesson_id === selectedLesson?.id)
+              .map((quiz) => (
+                <div key={quiz.id} className="border rounded-lg p-4">
+                  <div className="flex items-start justify-between mb-4">
+                    <div>
+                      <h4 className="font-medium text-lg">{quiz.title}</h4>
+                      <Badge variant="outline" className="mt-1">
+                        {quiz.questions?.length || 0} câu hỏi
+                      </Badge>
+                    </div>
+                    <div className="flex space-x-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setSelectedQuiz({
+                            question: quiz.questions?.[0]?.question || '',
+                            options: quiz.questions?.[0]?.options || [
+                              '',
+                              '',
+                              '',
+                              '',
+                            ],
+                            correctAnswer:
+                              quiz.questions?.[0]?.correct_answer || 0,
+                          });
+                          setShowEditQuizModal(true);
+                        }}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          if (
+                            window.confirm(
+                              'Bạn có chắc chắn muốn xóa bài tập này?'
+                            )
+                          ) {
+                            // TODO: Implement delete quiz
+                            toast.success('Đã xóa bài tập thành công!');
+                          }
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    {quiz.questions?.map((question, index) => (
+                      <div
+                        key={question.id}
+                        className="pl-4 border-l-2 border-gray-200"
+                      >
+                        <p className="text-sm font-medium mb-2">
+                          {index + 1}. {question.question}
+                        </p>
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                          {question.options.map((option, optIndex) => (
+                            <div
+                              key={optIndex}
+                              className={`p-2 rounded ${
+                                optIndex === question.correct_answer
+                                  ? 'bg-green-50 text-green-700'
+                                  : 'bg-gray-50'
+                              }`}
+                            >
+                              {String.fromCharCode(65 + optIndex)}. {option}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Quiz Modal */}
+      <Dialog open={showEditQuizModal} onOpenChange={setShowEditQuizModal}>
+        <DialogContent className="max-w-4xl bg-white">
+          <DialogHeader>
+            <DialogTitle>
+              {selectedQuiz?.question ? 'Chỉnh sửa bài tập' : 'Tạo bài tập mới'}
+            </DialogTitle>
+          </DialogHeader>
+          <QuizForm
+            onSubmit={handleQuizSubmit}
+            mode={selectedQuiz?.question ? 'edit' : 'add'}
+            initialData={selectedQuiz || undefined}
+            onCancel={() => setShowEditQuizModal(false)}
           />
         </DialogContent>
       </Dialog>

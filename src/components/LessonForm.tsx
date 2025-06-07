@@ -13,6 +13,9 @@ import {
 } from '@/components/ui/select';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
+import type { EditorContent } from '@/types/editor';
+import type { JSONContent } from '@tiptap/core';
+import type { Lesson } from '@/lib/api';
 
 interface Topic {
   id: number;
@@ -22,15 +25,31 @@ interface Topic {
 interface LessonFormProps {
   onSuccess: () => void;
   onCancel: () => void;
+  lesson?: Lesson;
 }
 
-export function LessonForm({ onSuccess, onCancel }: LessonFormProps) {
+export function LessonForm({ onSuccess, onCancel, lesson }: LessonFormProps) {
   const [title, setTitle] = useState('');
-  const [content, setContent] = useState<any>(null);
+  const [content, setContent] = useState<EditorContent | null>(null);
   const [duration, setDuration] = useState('');
   const [topicId, setTopicId] = useState<string>('');
   const [topics, setTopics] = useState<Topic[]>([]);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (lesson && topics.length > 0) {
+      setTitle(lesson.title);
+      setDuration(lesson.duration);
+      setTopicId(lesson.topic_id.toString());
+      try {
+        const contentData = JSON.parse(lesson.content);
+        setContent(contentData);
+      } catch (error) {
+        console.error('Error parsing lesson content:', error);
+        setContent(null);
+      }
+    }
+  }, [lesson, topics]);
 
   useEffect(() => {
     async function loadTopics() {
@@ -41,7 +60,7 @@ export function LessonForm({ onSuccess, onCancel }: LessonFormProps) {
           .order('id');
 
         if (error) throw error;
-        setTopics(data);
+        setTopics(data || []);
       } catch (error) {
         console.error('Error loading topics:', error);
         toast.error('Không thể tải danh sách chủ đề');
@@ -53,32 +72,68 @@ export function LessonForm({ onSuccess, onCancel }: LessonFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Validate form
     if (!topicId) {
       toast.error('Vui lòng chọn chủ đề');
+      return;
+    }
+    if (!title.trim()) {
+      toast.error('Vui lòng nhập tiêu đề bài học');
+      return;
+    }
+    if (!content) {
+      toast.error('Vui lòng nhập nội dung bài học');
+      return;
+    }
+    if (!duration.trim()) {
+      toast.error('Vui lòng nhập thời lượng');
       return;
     }
 
     setLoading(true);
 
     try {
-      const { data, error } = await supabase
-        .from('lessons')
-        .insert({
-          topic_id: parseInt(topicId),
-          title,
-          content,
-          duration,
-        })
-        .select()
-        .single();
+      // Convert content to JSON string for storage
+      const contentJson = JSON.stringify(content);
 
-      if (error) throw error;
+      if (lesson) {
+        // Update existing lesson
+        const { data, error } = await supabase
+          .from('lessons')
+          .update({
+            topic_id: parseInt(topicId),
+            title: title.trim(),
+            content: contentJson,
+            duration: duration.trim(),
+          })
+          .eq('id', lesson.id)
+          .select()
+          .single();
 
-      toast.success('Tạo bài học thành công!');
+        if (error) throw error;
+        toast.success('Cập nhật bài học thành công!');
+      } else {
+        // Create new lesson
+        const { data, error } = await supabase
+          .from('lessons')
+          .insert({
+            topic_id: parseInt(topicId),
+            title: title.trim(),
+            content: contentJson,
+            duration: duration.trim(),
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+        toast.success('Tạo bài học thành công!');
+      }
+
       onSuccess();
     } catch (error) {
-      console.error('Error creating lesson:', error);
-      toast.error('Không thể tạo bài học');
+      console.error('Error saving lesson:', error);
+      toast.error('Không thể lưu bài học. Vui lòng thử lại sau.');
     } finally {
       setLoading(false);
     }
