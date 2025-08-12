@@ -28,7 +28,7 @@ const Lessons = () => {
 
   useEffect(() => {
     window.scrollTo(0, 0);
-  }, []);
+  }, [id]);
 
   if (!topic) {
     return (

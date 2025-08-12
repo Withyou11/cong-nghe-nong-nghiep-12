@@ -1,30 +1,61 @@
-
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { topics, keywords } from '@/data/topics';
+import { useKeywordsByTopic } from '@/hooks/useKeywords';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/lib/supabase';
 import { ArrowLeft, Search, BookOpen } from 'lucide-react';
 
 const Keywords = () => {
   const { id } = useParams();
-  const topic = topics.find(t => t.id === parseInt(id || '0'));
-  const topicKeywords = keywords.filter(k => k.topicId === parseInt(id || '0'));
-  
+  const topicId = parseInt(id || '0');
+
+  // Load topic from DB
+  const { data: topic } = useQuery({
+    queryKey: ['topic', topicId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('topics')
+        .select('*')
+        .eq('id', topicId)
+        .single();
+      if (error) throw error;
+      return data as any;
+    },
+    enabled: !!topicId,
+  });
+
+  // Load keywords by topic from DB
+  const { keywords: topicKeywords } = useKeywordsByTopic(topicId);
+
   const [searchTerm, setSearchTerm] = useState('');
-  
-  const filteredKeywords = topicKeywords.filter(keyword =>
-    keyword.term.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    keyword.definition.toLowerCase().includes(searchTerm.toLowerCase())
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [id]);
+
+  const filteredKeywords = topicKeywords.filter(
+    (keyword) =>
+      keyword.term.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      keyword.definition.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   if (!topic) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">Không tìm thấy chủ đề</h1>
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">
+            Không tìm thấy chủ đề
+          </h1>
           <Link to="/">
             <Button>Quay về trang chủ</Button>
           </Link>
@@ -61,12 +92,18 @@ const Keywords = () => {
         <Card className="mb-8">
           <CardHeader>
             <div className="flex items-center">
-              <div className={`w-12 h-12 ${topic.color} rounded-lg flex items-center justify-center mr-4`}>
+              <div
+                className={`w-12 h-12 ${
+                  topic.color || 'bg-green-500'
+                } rounded-lg flex items-center justify-center mr-4`}
+              >
                 <Search className="h-6 w-6 text-white" />
               </div>
               <div>
                 <CardTitle>{topic.title}</CardTitle>
-                <CardDescription>Tra cứu các thuật ngữ chuyên môn và định nghĩa</CardDescription>
+                <CardDescription>
+                  Tra cứu các thuật ngữ chuyên môn và định nghĩa
+                </CardDescription>
               </div>
             </div>
           </CardHeader>
@@ -104,7 +141,10 @@ const Keywords = () => {
         <div className="space-y-4">
           {filteredKeywords.length > 0 ? (
             filteredKeywords.map((keyword) => (
-              <Card key={keyword.id} className="hover:shadow-lg transition-shadow">
+              <Card
+                key={keyword.id}
+                className="hover:shadow-lg transition-shadow"
+              >
                 <CardContent className="p-6">
                   <div className="flex items-start space-x-4">
                     <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
@@ -133,9 +173,7 @@ const Keywords = () => {
                   Các từ khóa cho chủ đề này đang được cập nhật
                 </p>
                 <Link to={`/topic/${id}`}>
-                  <Button variant="outline">
-                    Quay lại chủ đề
-                  </Button>
+                  <Button variant="outline">Quay lại chủ đề</Button>
                 </Link>
               </CardContent>
             </Card>
@@ -147,7 +185,8 @@ const Keywords = () => {
                   Không tìm thấy kết quả
                 </h3>
                 <p className="text-gray-600 mb-4">
-                  Không có từ khóa nào phù hợp với từ khóa tìm kiếm "{searchTerm}"
+                  Không có từ khóa nào phù hợp với từ khóa tìm kiếm "
+                  {searchTerm}"
                 </p>
                 <Button variant="outline" onClick={() => setSearchTerm('')}>
                   Xóa bộ lọc

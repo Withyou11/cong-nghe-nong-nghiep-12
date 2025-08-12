@@ -148,7 +148,7 @@ export const topics: Topic[] = [
     keywords: 25,
     color: 'bg-rose-500',
     backgroundImage:
-      'https://lh5.googleusercontent.com/proxy/-_T_Dy8hpXyGICzYhrH0JOBi_GMZMcWn0E94j66ZXbPgnlgmQEPBAU3lad8PnP9vcz0wwRimWAg3TxA7t4XRhuw1a97mQCwl9YVNZHfuyaYA1I9iwMXUQXbnTv4BAbDKBX1X0r0-5XPkHqq-zSVgoQ',
+      'https://bcp.cdnchinhphu.vn/334894974524682240/2024/5/10/tau-ca-anh-nhu-dong-1715332613810723125229.jpg',
   },
 ];
 

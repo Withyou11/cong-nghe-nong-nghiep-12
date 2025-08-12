@@ -9,7 +9,9 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { topics } from '@/data/topics';
+import { useTopicStatsByTopic } from '@/hooks/useTopicStats';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/lib/supabase';
 import {
   BookOpen,
   Brain,
@@ -17,15 +19,77 @@ import {
   ArrowLeft,
   Clock,
   CheckCircle,
+  Loader2,
 } from 'lucide-react';
 
 const TopicDetail = () => {
   const { id } = useParams();
-  const topic = topics.find((t) => t.id === parseInt(id || '0'));
+  const topicId = parseInt(id || '0');
+  const { topicStats, isLoading: isLoadingStats } =
+    useTopicStatsByTopic(topicId);
+
+  // Lấy thông tin topic
+  const { data: topic, isLoading: isLoadingTopic } = useQuery({
+    queryKey: ['topic', topicId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('topics')
+        .select('*')
+        .eq('id', topicId)
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!topicId,
+  });
+
+  // Lấy thông tin lessons và keywords
+  const { data: lessons, isLoading: isLoadingLessons } = useQuery({
+    queryKey: ['lessons', topicId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('lessons')
+        .select('*')
+        .eq('topic_id', topicId);
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!topicId,
+  });
+
+  const { data: keywords, isLoading: isLoadingKeywords } = useQuery({
+    queryKey: ['keywords', topicId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('keywords')
+        .select('*')
+        .eq('topic_id', topicId);
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!topicId,
+  });
+
+  const isLoading =
+    isLoadingStats || isLoadingTopic || isLoadingLessons || isLoadingKeywords;
 
   useEffect(() => {
     window.scrollTo(0, 0);
-  }, []);
+  }, [id]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-gray-400 mx-auto mb-4" />
+          <p className="text-gray-600">Đang tải thông tin...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!topic) {
     return (
@@ -42,32 +106,37 @@ const TopicDetail = () => {
     );
   }
 
+  // Tính toán thống kê
+  const totalLessons = lessons?.length || 0;
+  const totalQuizzes = topicStats?.length || 0;
+  const totalQuestions =
+    topicStats?.reduce((sum, stat) => sum + stat.question_count, 0) || 0;
+  const totalKeywords = keywords?.length || 0;
+
   const features = [
     {
       title: 'Danh sách bài học',
-      description: `${
-        topic.lessons
-      } bài học chi tiết về ${topic.title.toLowerCase()}`,
+      description: `${totalLessons} bài học chi tiết về ${topic.title.toLowerCase()}`,
       icon: BookOpen,
       link: `/topic/${topic.id}/lessons`,
       color: 'bg-green-500',
-      stats: `${topic.lessons} bài học`,
+      stats: `${totalLessons} bài học`,
     },
     {
       title: 'Bài tập trắc nghiệm',
-      description: `${topic.quizzes} bộ câu hỏi trắc nghiệm để kiểm tra kiến thức`,
+      description: `${totalQuestions} câu hỏi trắc nghiệm để kiểm tra kiến thức`,
       icon: Brain,
       link: `/topic/${topic.id}/quizzes`,
       color: 'bg-blue-500',
-      stats: `${topic.quizzes} bài tập`,
+      stats: `${totalQuestions} câu hỏi`,
     },
     {
       title: 'Tra cứu từ khóa',
-      description: `${topic.keywords} thuật ngữ chuyên môn quan trọng`,
+      description: `${totalKeywords} thuật ngữ chuyên môn quan trọng`,
       icon: Search,
       link: `/topic/${topic.id}/keywords`,
       color: 'bg-purple-500',
-      stats: `${topic.keywords} từ khóa`,
+      stats: `${totalKeywords} từ khóa`,
     },
   ];
 
@@ -76,7 +145,12 @@ const TopicDetail = () => {
       {/* Hero Section with Background Image */}
       <div
         className="bg-cover bg-center relative h-96"
-        style={{ backgroundImage: `url(${topic.backgroundImage})` }}
+        style={{
+          backgroundImage: `url(${
+            topic.background_image ||
+            'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&h=600&fit=crop'
+          })`,
+        }}
       >
         <div className="absolute inset-0 bg-black bg-opacity-50"></div>
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 h-full flex items-center">
@@ -108,7 +182,9 @@ const TopicDetail = () => {
           <CardHeader>
             <div className="flex items-center">
               <div
-                className={`w-16 h-16 ${topic.color} rounded-xl flex items-center justify-center mr-4`}
+                className={`w-16 h-16 ${
+                  topic.color || 'bg-green-500'
+                } rounded-xl flex items-center justify-center mr-4`}
               >
                 <BookOpen className="h-8 w-8 text-white" />
               </div>
@@ -124,19 +200,19 @@ const TopicDetail = () => {
             <div className="flex flex-wrap gap-3">
               <Badge variant="secondary" className="text-sm px-3 py-1">
                 <BookOpen className="h-4 w-4 mr-2" />
-                {topic.lessons} bài học
+                {totalLessons} bài học
               </Badge>
               <Badge variant="secondary" className="text-sm px-3 py-1">
                 <Brain className="h-4 w-4 mr-2" />
-                {topic.quizzes} bài tập
+                {totalQuestions} câu hỏi
               </Badge>
               <Badge variant="secondary" className="text-sm px-3 py-1">
                 <Search className="h-4 w-4 mr-2" />
-                {topic.keywords} từ khóa
+                {totalKeywords} từ khóa
               </Badge>
               <Badge variant="secondary" className="text-sm px-3 py-1">
                 <Clock className="h-4 w-4 mr-2" />
-                Ước tính: {topic.lessons * 45} phút
+                Ước tính: {totalLessons * 45} phút
               </Badge>
             </div>
           </CardContent>

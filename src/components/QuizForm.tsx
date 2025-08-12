@@ -55,6 +55,7 @@ export function QuizForm({
               setFormData({ ...formData, question: e.target.value })
             }
             placeholder="Nhập câu hỏi..."
+            required
           />
         </div>
 
@@ -76,6 +77,7 @@ export function QuizForm({
                   value={option}
                   onChange={(e) => handleOptionChange(index, e.target.value)}
                   placeholder={`Đáp án ${index + 1}`}
+                  required
                 />
               </div>
             ))}

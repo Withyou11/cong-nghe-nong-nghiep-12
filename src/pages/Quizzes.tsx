@@ -1,31 +1,102 @@
-
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
-import { topics, quizzes } from '@/data/topics';
-import { ArrowLeft, Brain, CheckCircle, XCircle, RotateCcw } from 'lucide-react';
+import { useTopicStatsByTopic } from '@/hooks/useTopicStats';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/lib/supabase';
+import {
+  ArrowLeft,
+  Brain,
+  CheckCircle,
+  XCircle,
+  RotateCcw,
+  Loader2,
+} from 'lucide-react';
 import { toast } from 'sonner';
 
 const Quizzes = () => {
   const { id } = useParams();
-  const topic = topics.find(t => t.id === parseInt(id || '0'));
-  const topicQuizzes = quizzes.filter(q => q.topicId === parseInt(id || '0'));
-  
-  const [selectedQuiz, setSelectedQuiz] = useState<number | null>(null);
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [answers, setAnswers] = useState<{[key: number]: number}>({});
+  const topicId = parseInt(id || '0');
+  const { topicStats, isLoading: isLoadingStats } =
+    useTopicStatsByTopic(topicId);
+
+  // Lấy thông tin topic
+  const { data: topic, isLoading: isLoadingTopic } = useQuery({
+    queryKey: ['topic', topicId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('topics')
+        .select('*')
+        .eq('id', topicId)
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!topicId,
+  });
+
+  // Lấy danh sách bài học của topic
+  const { data: lessons, isLoading: isLoadingLessons } = useQuery({
+    queryKey: ['lessons', topicId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('lessons')
+        .select('*')
+        .eq('topic_id', topicId)
+        .order('id');
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!topicId,
+  });
+
+  const [selectedLesson, setSelectedLesson] = useState<number | null>(null);
+  const [allQuestions, setAllQuestions] = useState<
+    {
+      id: number;
+      question: string;
+      options: string[];
+      correct_answer: number;
+    }[]
+  >([]);
+  const [answers, setAnswers] = useState<{ [key: number]: number }>({});
   const [showResults, setShowResults] = useState(false);
   const [score, setScore] = useState(0);
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [id]);
+
+  if (isLoadingStats || isLoadingTopic || isLoadingLessons) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-gray-400 mx-auto mb-4" />
+          <p className="text-gray-600">Đang tải bài tập...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!topic) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">Không tìm thấy chủ đề</h1>
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">
+            Không tìm thấy chủ đề
+          </h1>
           <Link to="/">
             <Button>Quay về trang chủ</Button>
           </Link>
@@ -34,63 +105,72 @@ const Quizzes = () => {
     );
   }
 
-  const currentQuiz = selectedQuiz !== null ? topicQuizzes.find(q => q.id === selectedQuiz) : null;
-  const currentQuestion = currentQuiz?.questions[currentQuestionIndex];
+  const handleStartQuiz = async (lessonId: number) => {
+    try {
+      // Lấy tất cả câu hỏi của bài học này
+      const { data: questions, error } = await supabase
+        .from('questions')
+        .select(
+          `
+          id,
+          question,
+          options,
+          correct_answer,
+          quizzes!inner(
+            lesson_id
+          )
+        `
+        )
+        .eq('quizzes.lesson_id', lessonId)
+        .order('id');
 
-  const handleStartQuiz = (quizId: number) => {
-    setSelectedQuiz(quizId);
-    setCurrentQuestionIndex(0);
-    setAnswers({});
-    setShowResults(false);
-    setScore(0);
+      if (error) throw error;
+
+      setAllQuestions(questions || []);
+      setSelectedLesson(lessonId);
+      setAnswers({});
+      setShowResults(false);
+      setScore(0);
+    } catch (error) {
+      console.error('Error loading questions:', error);
+      toast.error('Có lỗi xảy ra khi tải câu hỏi!');
+    }
   };
 
   const handleAnswerSelect = (questionId: number, answerIndex: number) => {
-    setAnswers(prev => ({
+    setAnswers((prev) => ({
       ...prev,
-      [questionId]: answerIndex
+      [questionId]: answerIndex,
     }));
   };
 
-  const handleNextQuestion = () => {
-    if (currentQuiz && currentQuestionIndex < currentQuiz.questions.length - 1) {
-      setCurrentQuestionIndex(prev => prev + 1);
-    }
-  };
-
-  const handlePreviousQuestion = () => {
-    if (currentQuestionIndex > 0) {
-      setCurrentQuestionIndex(prev => prev - 1);
-    }
-  };
-
   const handleSubmitQuiz = () => {
-    if (!currentQuiz) return;
-    
+    if (!allQuestions.length) return;
+
     let correctAnswers = 0;
-    currentQuiz.questions.forEach(question => {
-      if (answers[question.id] === question.correctAnswer) {
+    allQuestions.forEach((question) => {
+      if (answers[question.id] === question.correct_answer) {
         correctAnswers++;
       }
     });
-    
-    const finalScore = Math.round((correctAnswers / currentQuiz.questions.length) * 100);
+
+    const finalScore = Math.round((correctAnswers / allQuestions.length) * 100);
     setScore(finalScore);
     setShowResults(true);
-    
+
     toast.success(`Bạn đã hoàn thành bài tập! Điểm số: ${finalScore}/100`);
   };
 
   const resetQuiz = () => {
-    setSelectedQuiz(null);
-    setCurrentQuestionIndex(0);
+    setSelectedLesson(null);
+    setAllQuestions([]);
     setAnswers({});
     setShowResults(false);
     setScore(0);
   };
 
-  // Quiz selection view
-  if (selectedQuiz === null) {
+  // Lesson selection view
+  if (selectedLesson === null) {
     return (
       <div className="min-h-screen bg-gray-50">
         <div className="bg-white shadow-sm">
@@ -116,41 +196,64 @@ const Quizzes = () => {
           <Card className="mb-8">
             <CardHeader>
               <div className="flex items-center">
-                <div className={`w-12 h-12 ${topic.color} rounded-lg flex items-center justify-center mr-4`}>
+                <div
+                  className={`w-12 h-12 ${
+                    topic.color || 'bg-green-500'
+                  } rounded-lg flex items-center justify-center mr-4`}
+                >
                   <Brain className="h-6 w-6 text-white" />
                 </div>
                 <div>
                   <CardTitle>{topic.title}</CardTitle>
-                  <CardDescription>Kiểm tra kiến thức của bạn với các bài tập trắc nghiệm</CardDescription>
+                  <CardDescription>
+                    Kiểm tra kiến thức của bạn với các bài tập trắc nghiệm
+                  </CardDescription>
                 </div>
               </div>
             </CardHeader>
           </Card>
 
           <div className="space-y-4">
-            {topicQuizzes.length > 0 ? (
-              topicQuizzes.map((quiz) => (
-                <Card key={quiz.id} className="hover:shadow-lg transition-shadow cursor-pointer">
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="text-lg font-semibold mb-2">{quiz.title}</h3>
-                        <div className="flex space-x-2">
-                          <Badge variant="secondary">
-                            {quiz.questions.length} câu hỏi
-                          </Badge>
-                          <Badge variant="secondary">
-                            {quiz.questions.length * 2} phút
-                          </Badge>
+            {lessons && lessons.length > 0 ? (
+              lessons.map((lesson) => {
+                // Tìm số lượng câu hỏi cho bài học này
+                const lessonStats = topicStats?.find(
+                  (stat) => stat.lesson_id === lesson.id
+                );
+                const questionCount = lessonStats?.question_count || 0;
+                const estimatedTime = Math.round(questionCount * 1.5); // 1.5 phút mỗi câu hỏi
+
+                return (
+                  <Card
+                    key={lesson.id}
+                    className="hover:shadow-lg transition-shadow cursor-pointer"
+                  >
+                    <CardContent className="p-6">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h3 className="text-lg font-semibold mb-2">
+                            {lesson.title}
+                          </h3>
+                          <div className="flex space-x-2">
+                            <Badge variant="secondary">
+                              {questionCount} câu hỏi
+                            </Badge>
+                            <Badge variant="secondary">
+                              {estimatedTime} phút
+                            </Badge>
+                          </div>
                         </div>
+                        <Button
+                          onClick={() => handleStartQuiz(lesson.id)}
+                          disabled={questionCount === 0}
+                        >
+                          Bắt đầu làm bài
+                        </Button>
                       </div>
-                      <Button onClick={() => handleStartQuiz(quiz.id)}>
-                        Bắt đầu làm bài
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
+                    </CardContent>
+                  </Card>
+                );
+              })
             ) : (
               <Card>
                 <CardContent className="p-8 text-center">
@@ -171,38 +274,131 @@ const Quizzes = () => {
   }
 
   // Quiz taking view
-  if (!showResults && currentQuestion) {
+  if (!showResults && allQuestions.length > 0) {
     return (
       <div className="min-h-screen bg-gray-50">
         <div className="bg-white shadow-sm">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center">
-                <Button variant="ghost" size="sm" className="mr-4" onClick={resetQuiz}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="mr-4"
+                  onClick={resetQuiz}
+                >
                   <ArrowLeft className="h-4 w-4 mr-2" />
                   Quay lại
                 </Button>
                 <div>
                   <h1 className="text-xl font-bold text-gray-900">
-                    {currentQuiz?.title}
+                    Bài tập trắc nghiệm
                   </h1>
                   <p className="text-sm text-gray-600">
-                    Câu {currentQuestionIndex + 1} / {currentQuiz?.questions.length}
+                    {allQuestions.length} câu hỏi
                   </p>
                 </div>
               </div>
               <div className="flex items-center space-x-2">
                 <div className="w-32 bg-gray-200 rounded-full h-2">
-                  <div 
+                  <div
                     className="bg-green-500 h-2 rounded-full transition-all duration-300"
-                    style={{ 
-                      width: `${((currentQuestionIndex + 1) / (currentQuiz?.questions.length || 1)) * 100}%` 
+                    style={{
+                      width: `${
+                        (Object.keys(answers).length / allQuestions.length) *
+                        100
+                      }%`,
                     }}
                   ></div>
                 </div>
                 <span className="text-sm text-gray-600">
-                  {Math.round(((currentQuestionIndex + 1) / (currentQuiz?.questions.length || 1)) * 100)}%
+                  {Math.round(
+                    (Object.keys(answers).length / allQuestions.length) * 100
+                  )}
+                  %
                 </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="space-y-6">
+            {allQuestions.map((question, index) => (
+              <Card key={question.id}>
+                <CardContent className="p-6">
+                  <h3 className="text-lg font-semibold mb-4">
+                    Câu {index + 1}: {question.question}
+                  </h3>
+
+                  <RadioGroup
+                    value={answers[question.id]?.toString()}
+                    onValueChange={(value) =>
+                      handleAnswerSelect(question.id, parseInt(value))
+                    }
+                  >
+                    {question.options.map((option, optionIndex) => (
+                      <div
+                        key={optionIndex}
+                        className="flex items-center space-x-2 p-3 rounded-lg hover:bg-gray-50"
+                      >
+                        <RadioGroupItem
+                          value={optionIndex.toString()}
+                          id={`question-${question.id}-option-${optionIndex}`}
+                        />
+                        <Label
+                          htmlFor={`question-${question.id}-option-${optionIndex}`}
+                          className="flex-1 cursor-pointer"
+                        >
+                          {option}
+                        </Label>
+                      </div>
+                    ))}
+                  </RadioGroup>
+                </CardContent>
+              </Card>
+            ))}
+
+            <div className="flex justify-center mt-8">
+              <Button
+                onClick={handleSubmitQuiz}
+                disabled={Object.keys(answers).length !== allQuestions.length}
+                size="lg"
+              >
+                Nộp bài
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Results view
+  if (showResults && allQuestions.length > 0) {
+    const correctAnswers = allQuestions.filter(
+      (q) => answers[q.id] === q.correct_answer
+    ).length;
+
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <div className="bg-white shadow-sm">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <div className="flex items-center">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="mr-4"
+                onClick={resetQuiz}
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Danh sách bài tập
+              </Button>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">
+                  Kết quả bài tập
+                </h1>
+                <p className="text-gray-600">Bài tập trắc nghiệm</p>
               </div>
             </div>
           </div>
@@ -210,160 +406,149 @@ const Quizzes = () => {
 
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <Card>
-            <CardContent className="p-8">
-              <h2 className="text-xl font-semibold mb-6">{currentQuestion.question}</h2>
-              
-              <RadioGroup 
-                value={answers[currentQuestion.id]?.toString()} 
-                onValueChange={(value) => handleAnswerSelect(currentQuestion.id, parseInt(value))}
-              >
-                {currentQuestion.options.map((option, index) => (
-                  <div key={index} className="flex items-center space-x-2 p-3 rounded-lg hover:bg-gray-50">
-                    <RadioGroupItem value={index.toString()} id={`option-${index}`} />
-                    <Label htmlFor={`option-${index}`} className="flex-1 cursor-pointer">
-                      {option}
-                    </Label>
-                  </div>
-                ))}
-              </RadioGroup>
-
-              <div className="flex justify-between mt-8">
-                <Button 
-                  variant="outline" 
-                  onClick={handlePreviousQuestion}
-                  disabled={currentQuestionIndex === 0}
-                >
-                  Câu trước
-                </Button>
-                
-                {currentQuestionIndex === (currentQuiz?.questions.length || 1) - 1 ? (
-                  <Button 
-                    onClick={handleSubmitQuiz}
-                    disabled={!answers[currentQuestion.id] && answers[currentQuestion.id] !== 0}
-                  >
-                    Nộp bài
-                  </Button>
-                ) : (
-                  <Button 
-                    onClick={handleNextQuestion}
-                    disabled={!answers[currentQuestion.id] && answers[currentQuestion.id] !== 0}
-                  >
-                    Câu tiếp theo
-                  </Button>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    );
-  }
-
-  // Results view
-  if (showResults && currentQuiz) {
-    const correctAnswers = currentQuiz.questions.filter(q => answers[q.id] === q.correctAnswer).length;
-    
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <div className="bg-white shadow-sm">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-            <div className="flex items-center">
-              <Button variant="ghost" size="sm" className="mr-4" onClick={resetQuiz}>
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Danh sách bài tập
-              </Button>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">Kết quả bài tập</h1>
-                <p className="text-gray-600">{currentQuiz.title}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          {/* Score Card */}
-          <Card className="mb-8">
             <CardContent className="p-8 text-center">
-              <div className={`w-24 h-24 mx-auto rounded-full flex items-center justify-center mb-4 ${
-                score >= 80 ? 'bg-green-100' : score >= 60 ? 'bg-yellow-100' : 'bg-red-100'
-              }`}>
-                <span className={`text-3xl font-bold ${
-                  score >= 80 ? 'text-green-600' : score >= 60 ? 'text-yellow-600' : 'text-red-600'
-                }`}>
-                  {score}
-                </span>
+              <div className="mb-8">
+                <div
+                  className={`w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-4 ${
+                    score >= 80
+                      ? 'bg-green-100'
+                      : score >= 60
+                      ? 'bg-yellow-100'
+                      : 'bg-red-100'
+                  }`}
+                >
+                  {score >= 80 ? (
+                    <CheckCircle className="h-12 w-12 text-green-600" />
+                  ) : score >= 60 ? (
+                    <CheckCircle className="h-12 w-12 text-yellow-600" />
+                  ) : (
+                    <XCircle className="h-12 w-12 text-red-600" />
+                  )}
+                </div>
+                <h2 className="text-3xl font-bold mb-2">
+                  Điểm số: {score}/100
+                </h2>
+                <p className="text-gray-600">
+                  {correctAnswers} / {allQuestions.length} câu đúng
+                </p>
               </div>
-              <h2 className="text-2xl font-bold mb-2">
-                {score >= 80 ? 'Xuất sắc!' : score >= 60 ? 'Khá tốt!' : 'Cần cố gắng thêm!'}
-              </h2>
-              <p className="text-gray-600 mb-4">
-                Bạn đã trả lời đúng {correctAnswers}/{currentQuiz.questions.length} câu hỏi
-              </p>
-              <div className="flex justify-center space-x-4">
-                <Button onClick={() => handleStartQuiz(currentQuiz.id)}>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-blue-600">
+                    {allQuestions.length}
+                  </div>
+                  <div className="text-sm text-gray-600">Tổng câu hỏi</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-green-600">
+                    {correctAnswers}
+                  </div>
+                  <div className="text-sm text-gray-600">Câu đúng</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-red-600">
+                    {allQuestions.length - correctAnswers}
+                  </div>
+                  <div className="text-sm text-gray-600">Câu sai</div>
+                </div>
+              </div>
+
+              {/* Chi tiết từng câu hỏi */}
+              <div className="mt-8 space-y-4">
+                <h3 className="text-lg font-semibold text-center mb-4">
+                  Chi tiết từng câu hỏi
+                </h3>
+                {allQuestions.map((question, index) => {
+                  const userAnswer = answers[question.id];
+                  const isCorrect = userAnswer === question.correct_answer;
+
+                  return (
+                    <Card
+                      key={question.id}
+                      className={`border-2 ${
+                        isCorrect
+                          ? 'border-green-200 bg-green-50'
+                          : 'border-red-200 bg-red-50'
+                      }`}
+                    >
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between mb-3">
+                          <h4 className="font-medium">
+                            Câu {index + 1}: {question.question}
+                          </h4>
+                          <div
+                            className={`px-2 py-1 rounded text-sm font-medium ${
+                              isCorrect
+                                ? 'bg-green-100 text-green-800'
+                                : 'bg-red-100 text-red-800'
+                            }`}
+                          >
+                            {isCorrect ? 'Đúng' : 'Sai'}
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          {question.options.map((option, optionIndex) => {
+                            const isUserAnswer = userAnswer === optionIndex;
+                            const isCorrectAnswer =
+                              question.correct_answer === optionIndex;
+
+                            return (
+                              <div
+                                key={optionIndex}
+                                className={`p-2 rounded border ${
+                                  isCorrectAnswer
+                                    ? 'bg-green-100 border-green-300'
+                                    : isUserAnswer && !isCorrect
+                                    ? 'bg-red-100 border-red-300'
+                                    : 'bg-gray-50 border-gray-200'
+                                }`}
+                              >
+                                <div className="flex items-center space-x-2">
+                                  {isCorrectAnswer && (
+                                    <CheckCircle className="h-4 w-4 text-green-600" />
+                                  )}
+                                  {isUserAnswer && !isCorrect && (
+                                    <XCircle className="h-4 w-4 text-red-600" />
+                                  )}
+                                  <span
+                                    className={`font-medium ${
+                                      isCorrectAnswer
+                                        ? 'text-green-800'
+                                        : isUserAnswer && !isCorrect
+                                        ? 'text-red-800'
+                                        : 'text-gray-700'
+                                    }`}
+                                  >
+                                    {String.fromCharCode(65 + optionIndex)}.{' '}
+                                    {option}
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+
+              <div className="space-y-4 mt-8">
+                <Button onClick={resetQuiz} className="w-full">
                   <RotateCcw className="h-4 w-4 mr-2" />
-                  Làm lại
+                  Làm lại bài tập
                 </Button>
-                <Button variant="outline" onClick={resetQuiz}>
-                  Chọn bài khác
-                </Button>
+                <Link to={`/topic/${id}/quizzes`}>
+                  <Button variant="outline" className="w-full">
+                    <ArrowLeft className="h-4 w-4 mr-2" />
+                    Quay về danh sách bài tập
+                  </Button>
+                </Link>
               </div>
             </CardContent>
           </Card>
-
-          {/* Detailed Results */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold">Chi tiết kết quả:</h3>
-            {currentQuiz.questions.map((question, index) => {
-              const userAnswer = answers[question.id];
-              const isCorrect = userAnswer === question.correctAnswer;
-              
-              return (
-                <Card key={question.id}>
-                  <CardContent className="p-6">
-                    <div className="flex items-start space-x-3">
-                      <div className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center ${
-                        isCorrect ? 'bg-green-100' : 'bg-red-100'
-                      }`}>
-                        {isCorrect ? (
-                          <CheckCircle className="h-4 w-4 text-green-600" />
-                        ) : (
-                          <XCircle className="h-4 w-4 text-red-600" />
-                        )}
-                      </div>
-                      <div className="flex-1">
-                        <h4 className="font-medium mb-2">
-                          Câu {index + 1}: {question.question}
-                        </h4>
-                        <div className="space-y-2">
-                          {question.options.map((option, optionIndex) => (
-                            <div 
-                              key={optionIndex}
-                              className={`p-2 rounded ${
-                                optionIndex === question.correctAnswer 
-                                  ? 'bg-green-100 text-green-800' 
-                                  : optionIndex === userAnswer && userAnswer !== question.correctAnswer
-                                  ? 'bg-red-100 text-red-800'
-                                  : 'bg-gray-50'
-                              }`}
-                            >
-                              {option}
-                              {optionIndex === question.correctAnswer && (
-                                <span className="ml-2 text-green-600 font-medium">(Đáp án đúng)</span>
-                              )}
-                              {optionIndex === userAnswer && userAnswer !== question.correctAnswer && (
-                                <span className="ml-2 text-red-600 font-medium">(Bạn chọn)</span>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
         </div>
       </div>
     );

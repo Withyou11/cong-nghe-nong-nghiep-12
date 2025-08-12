@@ -1,6 +1,14 @@
+import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { TopicCard } from '@/components/TopicCard';
 import { StatsCard } from '@/components/StatsCard';
 import { topics } from '@/data/topics';
@@ -13,6 +21,7 @@ import {
   Award,
   MessageCircle,
   FileText,
+  ExternalLink,
   ChevronRight,
   Leaf,
   Fish,
@@ -21,17 +30,32 @@ import {
 import { useLessons } from '@/hooks/useLessons';
 import { useQuizzes } from '@/hooks/useQuizzes';
 import { useKeywords } from '@/hooks/useKeywords';
+import { useTopicSummary } from '@/hooks/useTopicStats';
+import { useExamFiles } from '@/hooks/useExamFiles';
 
 const Home = () => {
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
   const { lessons, isLoading: isLoadingLessons } = useLessons();
   const { quizzes, isLoading: isLoadingQuizzes } = useQuizzes();
   const { keywords, isLoading: isLoadingKeywords } = useKeywords();
+  const { topicSummary, isLoading: isLoadingTopicSummary } = useTopicSummary();
+  const { files: examFiles, isLoading: isLoadingExamFiles } = useExamFiles();
 
+  // Tính tổng số câu hỏi từ topicSummary
+  const totalQuestions =
+    topicSummary?.reduce((sum, topic) => sum + topic.total_questions, 0) || 0;
   const totalLessons = lessons?.length || 0;
   const totalQuizzes = quizzes?.length || 0;
   const totalKeywords = keywords?.length || 0;
 
-  const isLoading = isLoadingLessons || isLoadingQuizzes || isLoadingKeywords;
+  const isLoading =
+    isLoadingLessons ||
+    isLoadingQuizzes ||
+    isLoadingKeywords ||
+    isLoadingTopicSummary;
 
   const features = [
     {
@@ -96,7 +120,7 @@ const Home = () => {
             </h1>
             <p className="text-xl md:text-2xl mb-8 text-green-100 max-w-3xl mx-auto">
               Nền tảng học tập trực tuyến dành cho học sinh lớp 12 tìm hiểu về
-              công nghệ lâm nghiệp và thủy sản
+              công nghệ lâm nghiệp và thủy sản và luyện thi THPTQG
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link to="/topic/1">
@@ -145,7 +169,7 @@ const Home = () => {
               />
               <StatsCard
                 title="Câu hỏi trắc nghiệm"
-                value={totalQuizzes.toString()}
+                value={totalQuestions.toString()}
                 icon={Brain}
                 color="bg-purple-500"
               />
@@ -167,23 +191,80 @@ const Home = () => {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {topics.map((topic) => (
-              <TopicCard
-                key={topic.id}
-                topic={{
-                  ...topic,
-                  lessons:
-                    lessons?.filter((l) => l.topic_id === topic.id).length || 0,
-                  quizzes:
-                    quizzes?.filter((q) => q.topic_id === topic.id).length || 0,
-                  keywords:
-                    keywords?.filter((k) => k.topic_id === topic.id).length ||
-                    0,
-                }}
-              />
-            ))}
+          {isLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {topics.map((topic) => {
+                const topicStats = topicSummary?.find(
+                  (t) => t.topic_id === topic.id
+                );
+                return (
+                  <TopicCard
+                    key={topic.id}
+                    topic={{
+                      ...topic,
+                      lessons: topicStats?.total_lessons || 0,
+                      quizzes: topicStats?.total_questions || 0, // Hiển thị số câu hỏi thay vì số bài tập
+                      keywords:
+                        keywords?.filter((k) => k.topic_id === topic.id)
+                          .length || 0,
+                    }}
+                  />
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* Exam files quick view */}
+      <section className="py-16 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl md:text-3xl font-bold text-gray-900">
+              Đề thi THPTQG (Giáo viên tải lên)
+            </h2>
+            <Link to="/topic/1/quizzes">
+              <Button variant="outline">Xem thêm</Button>
+            </Link>
           </div>
+          {isLoadingExamFiles ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+            </div>
+          ) : examFiles.length === 0 ? (
+            <div className="text-center text-gray-600 py-8">
+              Chưa có đề thi nào
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {examFiles.slice(0, 6).map((f) => (
+                <Card key={f.id} className="hover:shadow-md">
+                  <CardHeader>
+                    <CardTitle className="text-base line-clamp-1">
+                      {f.title}
+                    </CardTitle>
+                    <CardDescription className="text-xs line-clamp-1">
+                      {f.file_name}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="flex items-center justify-between">
+                    <div className="text-xs text-gray-500">
+                      {(f.file_size / 1024 / 1024).toFixed(2)} MB
+                    </div>
+                    <a href={f.public_url} target="_blank" rel="noreferrer">
+                      <Button size="sm" variant="outline">
+                        <ExternalLink className="h-4 w-4 mr-1" /> Xem
+                      </Button>
+                    </a>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 

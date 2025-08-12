@@ -12,9 +12,17 @@ export function useStats() {
     queryFn: statsApi.getTopicStats,
   });
 
+  const { data: recentActivity, isLoading: isLoadingRecentActivity } = useQuery(
+    {
+      queryKey: ['recentActivity'],
+      queryFn: statsApi.getRecentActivity,
+    }
+  );
+
   return {
     stats,
     topicStats,
-    isLoading: isLoadingStats || isLoadingTopicStats,
+    recentActivity,
+    isLoading: isLoadingStats || isLoadingTopicStats || isLoadingRecentActivity,
   };
 }

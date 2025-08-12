@@ -16,7 +16,19 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { StatsCard } from '@/components/StatsCard';
 import { useLessons } from '@/hooks/useLessons';
 import { useStats } from '@/hooks/useStats';
-import { useQuizzes } from '@/hooks/useQuizzes';
+import {
+  useKeywordsByTopic,
+  useCreateKeyword,
+  useUpdateKeyword,
+  useDeleteKeyword,
+} from '@/hooks/useKeywords';
+import {
+  useQuizzes,
+  useQuizzesByLesson,
+  useCreateQuiz,
+  useUpdateQuiz,
+  useDeleteQuiz,
+} from '@/hooks/useQuizzes';
 import { QuizForm, QuizData } from '@/components/QuizForm';
 
 import {
@@ -32,6 +44,9 @@ import {
   Eye,
   Lock,
   Loader2,
+  File as FileIcon,
+  Download,
+  ExternalLink,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -43,6 +58,11 @@ import {
 } from '@/components/ui/dialog';
 import { LessonForm } from '@/components/LessonForm';
 import { Lesson } from '@/lib/api';
+import {
+  useExamFiles,
+  useUploadExamFile,
+  useDeleteExamFile,
+} from '@/hooks/useExamFiles';
 
 const Admin = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
@@ -56,10 +76,26 @@ const Admin = () => {
   const [showQuizManagementModal, setShowQuizManagementModal] = useState(false);
   const [showEditQuizModal, setShowEditQuizModal] = useState(false);
   const [selectedQuiz, setSelectedQuiz] = useState<QuizData | null>(null);
+  const [selectedQuizId, setSelectedQuizId] = useState<number | null>(null);
 
   const { lessons, isLoading: isLoadingLessons, deleteLesson } = useLessons();
   const { quizzes, isLoading: isLoadingQuizzes } = useQuizzes();
-  const { stats, topicStats, isLoading: isLoadingStats } = useStats();
+  const { quizzes: lessonQuizzes, isLoading: isLoadingLessonQuizzes } =
+    useQuizzesByLesson(selectedLesson?.id || null);
+  const {
+    stats,
+    topicStats,
+    recentActivity,
+    isLoading: isLoadingStats,
+  } = useStats();
+
+  const createQuizMutation = useCreateQuiz();
+  const updateQuizMutation = useUpdateQuiz();
+  const deleteQuizMutation = useDeleteQuiz();
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -79,10 +115,98 @@ const Admin = () => {
   };
 
   const handleQuizSubmit = (data: QuizData) => {
-    // TODO: Implement quiz submission logic
-    console.log('Quiz data:', data);
-    toast.success('Bài tập đã được lưu thành công!');
-    setShowEditQuizModal(false);
+    if (!selectedLesson?.id) {
+      toast.error('Không tìm thấy bài học!');
+      return;
+    }
+
+    console.log('Submitting quiz data:', data);
+    console.log('Selected lesson:', selectedLesson);
+
+    if (selectedQuizId) {
+      // Update existing quiz
+      updateQuizMutation.mutate(
+        {
+          quizId: selectedQuizId,
+          title: selectedLesson.title,
+          questions: [
+            {
+              question: data.question,
+              options: data.options,
+              correct_answer: data.correctAnswer,
+            },
+          ],
+        },
+        {
+          onSuccess: () => {
+            toast.success('Cập nhật bài tập thành công!');
+            setShowEditQuizModal(false);
+            setSelectedQuiz(null);
+            setSelectedQuizId(null);
+          },
+          onError: (error) => {
+            toast.error('Có lỗi xảy ra khi cập nhật bài tập!');
+            console.error('Update quiz error:', error);
+          },
+        }
+      );
+    } else {
+      // Create new quiz
+      console.log('Creating new quiz with lessonId:', selectedLesson.id);
+      createQuizMutation.mutate(
+        {
+          lessonId: selectedLesson.id,
+          title: selectedLesson.title,
+          questions: [
+            {
+              question: data.question,
+              options: data.options,
+              correct_answer: data.correctAnswer,
+            },
+          ],
+        },
+        {
+          onSuccess: (result) => {
+            console.log('Quiz created successfully:', result);
+            toast.success('Tạo bài tập thành công!');
+            setShowEditQuizModal(false);
+            setSelectedQuiz(null);
+          },
+          onError: (error) => {
+            console.error('Create quiz error details:', error);
+            toast.error('Có lỗi xảy ra khi tạo bài tập!');
+          },
+        }
+      );
+    }
+  };
+
+  const handleDeleteQuiz = (quizId: number) => {
+    if (window.confirm('Bạn có chắc chắn muốn xóa bài tập này?')) {
+      console.log('Deleting quiz with ID:', quizId);
+
+      deleteQuizMutation.mutate(quizId, {
+        onSuccess: () => {
+          console.log('Quiz deleted successfully');
+          toast.success('Đã xóa bài tập thành công!');
+        },
+        onError: (error) => {
+          console.error('Delete quiz error details:', error);
+
+          // Check for specific error types
+          const errorObj = error as { code?: string; message?: string };
+          if (errorObj?.code === '42501') {
+            toast.error(
+              'Lỗi quyền truy cập: Cần cấu hình RLS policy cho DELETE'
+            );
+          } else if (errorObj?.code === '23503') {
+            toast.error('Không thể xóa: Bài tập đang được sử dụng');
+          } else {
+            toast.error('Có lỗi xảy ra khi xóa bài tập!');
+          }
+        },
+      });
+    }
   };
 
   if (!isLoggedIn) {
@@ -130,11 +254,11 @@ const Admin = () => {
                 Đăng nhập
               </Button>
             </form>
-            <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+            {/* <div className="mt-4 p-3 bg-blue-50 rounded-lg">
               <p className="text-sm text-blue-800">
                 <strong>Demo:</strong> Tài khoản: giaovien | Mật khẩu: 123456
               </p>
-            </div>
+            </div> */}
           </CardContent>
         </Card>
       </div>
@@ -184,8 +308,8 @@ const Admin = () => {
             color="bg-green-500"
           />
           <StatsCard
-            title="Bài tập"
-            value={stats?.totalQuizzes.toString() || '0'}
+            title="Câu hỏi"
+            value={stats?.totalQuestions.toString() || '0'}
             icon={Brain}
             color="bg-purple-500"
           />
@@ -199,7 +323,7 @@ const Admin = () => {
 
         {/* Management Tabs */}
         <Tabs defaultValue="lessons" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger
               value="lessons"
               className="flex items-center space-x-2"
@@ -224,6 +348,13 @@ const Admin = () => {
             <TabsTrigger value="stats" className="flex items-center space-x-2">
               <BarChart3 className="h-4 w-4" />
               <span>Thống kê</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="exam-files"
+              className="flex items-center space-x-2"
+            >
+              <FileIcon className="h-4 w-4" />
+              <span>Đề thi THPTQG</span>
             </TabsTrigger>
           </TabsList>
 
@@ -309,6 +440,11 @@ const Admin = () => {
             </Card>
           </TabsContent>
 
+          {/* Exam Files Management */}
+          <TabsContent value="exam-files">
+            <ExamFilesSection />
+          </TabsContent>
+
           {/* Quizzes Management */}
           <TabsContent value="quizzes">
             <Card>
@@ -330,8 +466,16 @@ const Admin = () => {
                 ) : (
                   <div className="space-y-6">
                     {lessons?.map((lesson) => {
-                      const lessonQuizzes =
+                      const lessonQuizzesForLesson =
                         quizzes?.filter((q) => q.lesson_id === lesson.id) || [];
+                      const totalQuestions = lessonQuizzesForLesson.reduce(
+                        (total, quiz) => {
+                          return total + (quiz.questions?.length || 0);
+                        },
+                        0
+                      );
+                      const estimatedTime = Math.round(totalQuestions * 1.5); // 1.5 phút mỗi câu hỏi
+
                       return (
                         <div
                           key={lesson.id}
@@ -345,11 +489,11 @@ const Admin = () => {
                                 </h3>
                                 <div className="flex items-center space-x-2 mt-1">
                                   <Badge variant="secondary">
-                                    {lessonQuizzes.length} bài tập
+                                    {lessonQuizzesForLesson.length} bài tập
                                   </Badge>
-                                  <span className="text-sm text-gray-500">
-                                    {lesson.duration}
-                                  </span>
+                                  <Badge variant="secondary">
+                                    {estimatedTime} phút
+                                  </Badge>
                                 </div>
                               </div>
                               <Button
@@ -375,56 +519,7 @@ const Admin = () => {
 
           {/* Keywords Management */}
           <TabsContent value="keywords">
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle>Quản lý từ khóa</CardTitle>
-                    <CardDescription>
-                      Tạo, sửa và xóa các từ khóa
-                    </CardDescription>
-                  </div>
-                  <Button>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Thêm từ khóa
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent>
-                {isLoadingStats ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {topicStats?.map((topic) => (
-                      <div
-                        key={topic.id}
-                        className="flex items-center justify-between p-4 border rounded-lg"
-                      >
-                        <div>
-                          <h3 className="font-medium">{topic.title}</h3>
-                          <div className="flex items-center space-x-2 mt-1">
-                            <Badge variant="secondary">{topic.title}</Badge>
-                            <span className="text-sm text-gray-500">
-                              {topic.keywords} từ khóa
-                            </span>
-                          </div>
-                        </div>
-                        <div className="flex space-x-2">
-                          <Button size="sm" variant="outline">
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button size="sm" variant="outline">
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            <KeywordsAdminSection />
           </TabsContent>
 
           {/* Statistics */}
@@ -469,41 +564,95 @@ const Admin = () => {
                   <CardTitle>Hoạt động gần đây</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex items-center space-x-3 p-3 border rounded">
-                      <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                        <BookOpen className="h-4 w-4 text-green-600" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium">
-                          Bài học mới được tạo
-                        </p>
-                        <p className="text-xs text-gray-500">2 giờ trước</p>
-                      </div>
+                  {isLoadingStats ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
                     </div>
-                    <div className="flex items-center space-x-3 p-3 border rounded">
-                      <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                        <Brain className="h-4 w-4 text-blue-600" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium">
-                          Bài tập được cập nhật
-                        </p>
-                        <p className="text-xs text-gray-500">1 ngày trước</p>
-                      </div>
+                  ) : recentActivity && recentActivity.length > 0 ? (
+                    <div className="space-y-4">
+                      {recentActivity.map((activity) => {
+                        const getIcon = (iconName: string) => {
+                          switch (iconName) {
+                            case 'BookOpen':
+                              return <BookOpen className="h-4 w-4" />;
+                            case 'Brain':
+                              return <Brain className="h-4 w-4" />;
+                            case 'Search':
+                              return <Search className="h-4 w-4" />;
+                            case 'FileIcon':
+                              return <FileIcon className="h-4 w-4" />;
+                            default:
+                              return <BookOpen className="h-4 w-4" />;
+                          }
+                        };
+
+                        const getColorClass = (color: string) => {
+                          switch (color) {
+                            case 'green':
+                              return 'bg-green-100 text-green-600';
+                            case 'blue':
+                              return 'bg-blue-100 text-blue-600';
+                            case 'purple':
+                              return 'bg-purple-100 text-purple-600';
+                            case 'orange':
+                              return 'bg-orange-100 text-orange-600';
+                            default:
+                              return 'bg-gray-100 text-gray-600';
+                          }
+                        };
+
+                        const formatTimeAgo = (timestamp: string) => {
+                          const now = new Date();
+                          const activityTime = new Date(timestamp);
+                          const diffInMs =
+                            now.getTime() - activityTime.getTime();
+                          const diffInHours = Math.floor(
+                            diffInMs / (1000 * 60 * 60)
+                          );
+                          const diffInDays = Math.floor(diffInHours / 24);
+
+                          if (diffInDays > 0) {
+                            return `${diffInDays} ngày trước`;
+                          } else if (diffInHours > 0) {
+                            return `${diffInHours} giờ trước`;
+                          } else {
+                            return 'Vừa xong';
+                          }
+                        };
+
+                        return (
+                          <div
+                            key={activity.id}
+                            className="flex items-center space-x-3 p-3 border rounded"
+                          >
+                            <div
+                              className={`w-8 h-8 ${getColorClass(
+                                activity.color
+                              )} rounded-full flex items-center justify-center`}
+                            >
+                              {getIcon(activity.icon)}
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium">
+                                {activity.title}
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                {activity.subtitle}
+                              </p>
+                              <p className="text-xs text-gray-400">
+                                {formatTimeAgo(activity.timestamp)}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
-                    <div className="flex items-center space-x-3 p-3 border rounded">
-                      <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
-                        <Search className="h-4 w-4 text-purple-600" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium">
-                          Từ khóa mới được thêm
-                        </p>
-                        <p className="text-xs text-gray-500">3 ngày trước</p>
-                      </div>
+                  ) : (
+                    <div className="text-center py-8 text-gray-500">
+                      <BarChart3 className="h-16 w-16 mx-auto mb-4 text-gray-300" />
+                      <p>Chưa có hoạt động nào</p>
                     </div>
-                  </div>
+                  )}
                 </CardContent>
               </Card>
             </div>
@@ -565,6 +714,7 @@ const Admin = () => {
                     options: ['', '', '', ''],
                     correctAnswer: 0,
                   });
+                  setSelectedQuizId(null);
                   setShowEditQuizModal(true);
                 }}
               >
@@ -573,16 +723,16 @@ const Admin = () => {
               </Button>
             </div>
 
-            {quizzes
-              ?.filter((q) => q.lesson_id === selectedLesson?.id)
-              .map((quiz) => (
+            {isLoadingLessonQuizzes ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+              </div>
+            ) : lessonQuizzes && lessonQuizzes.length > 0 ? (
+              lessonQuizzes.map((quiz) => (
                 <div key={quiz.id} className="border rounded-lg p-4">
-                  <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-start justify-between">
                     <div>
                       <h4 className="font-medium text-lg">{quiz.title}</h4>
-                      <Badge variant="outline" className="mt-1">
-                        {quiz.questions?.length || 0} câu hỏi
-                      </Badge>
                     </div>
                     <div className="flex space-x-2">
                       <Button
@@ -601,6 +751,7 @@ const Admin = () => {
                               quiz.questions?.[0]?.correct_answer || 0,
                           });
                           setShowEditQuizModal(true);
+                          setSelectedQuizId(quiz.id);
                         }}
                       >
                         <Edit className="h-4 w-4" />
@@ -608,42 +759,35 @@ const Admin = () => {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => {
-                          if (
-                            window.confirm(
-                              'Bạn có chắc chắn muốn xóa bài tập này?'
-                            )
-                          ) {
-                            // TODO: Implement delete quiz
-                            toast.success('Đã xóa bài tập thành công!');
-                          }
-                        }}
+                        onClick={() => handleDeleteQuiz(quiz.id)}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
                   </div>
-
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     {quiz.questions?.map((question, index) => (
                       <div
                         key={question.id}
-                        className="pl-4 border-l-2 border-gray-200"
+                        className="bg-gray-50 rounded-lg p-4"
                       >
-                        <p className="text-sm font-medium mb-2">
-                          {index + 1}. {question.question}
+                        <p className="text-sm font-medium mb-3 text-gray-900">
+                          {question.question}
                         </p>
-                        <div className="grid grid-cols-2 gap-2 text-sm">
+                        <div className="grid grid-cols-1 gap-2 text-sm">
                           {question.options.map((option, optIndex) => (
                             <div
                               key={optIndex}
-                              className={`p-2 rounded ${
+                              className={`p-2 rounded border ${
                                 optIndex === question.correct_answer
-                                  ? 'bg-green-50 text-green-700'
-                                  : 'bg-gray-50'
+                                  ? 'bg-green-100 border-green-300 text-green-800'
+                                  : 'bg-white border-gray-200 text-gray-700'
                               }`}
                             >
-                              {String.fromCharCode(65 + optIndex)}. {option}
+                              <span className="font-medium mr-2">
+                                {String.fromCharCode(65 + optIndex)}.
+                              </span>
+                              {option}
                             </div>
                           ))}
                         </div>
@@ -651,7 +795,18 @@ const Admin = () => {
                     ))}
                   </div>
                 </div>
-              ))}
+              ))
+            ) : (
+              <div className="text-center py-8">
+                <Brain className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  Chưa có bài tập
+                </h3>
+                <p className="text-gray-600">
+                  Chưa có bài tập nào cho bài học này
+                </p>
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>
@@ -677,3 +832,350 @@ const Admin = () => {
 };
 
 export default Admin;
+
+// ----- Exam files admin section (inline component) -----
+function ExamFilesSection() {
+  const { files, isLoading } = useExamFiles();
+  const upload = useUploadExamFile();
+  const del = useDeleteExamFile();
+
+  const [title, setTitle] = useState('');
+  const [file, setFile] = useState<File | null>(null);
+
+  const onUpload = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!file) return toast.error('Vui lòng chọn file (.pdf, .docx)');
+    if (!title.trim()) return toast.error('Vui lòng nhập tiêu đề');
+    upload.mutate(
+      { file, title, topicId: null },
+      {
+        onSuccess: () => {
+          toast.success('Tải lên thành công');
+          setTitle('');
+          setFile(null);
+        },
+        onError: (err) => {
+          console.error(err);
+          toast.error('Tải lên thất bại');
+        },
+      }
+    );
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Quản lý đề thi THPTQG</CardTitle>
+        <CardDescription>Tải lên file Word/PDF, xem và xóa</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form
+          className="grid gap-4 md:grid-cols-3 items-end"
+          onSubmit={onUpload}
+        >
+          <div className="md:col-span-1">
+            <Label htmlFor="exam-title">Tiêu đề</Label>
+            <Input
+              id="exam-title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="VD: Đề minh họa Toán 2025"
+            />
+          </div>
+          <div className="md:col-span-1">
+            <Label htmlFor="exam-file">File (.pdf, .docx)</Label>
+            <Input
+              id="exam-file"
+              type="file"
+              accept="application/pdf,.pdf,.doc,.docx"
+              onChange={(e) => setFile(e.target.files?.[0] || null)}
+            />
+          </div>
+          <div className="md:col-span-1">
+            <Button type="submit" disabled={upload.isPending}>
+              {upload.isPending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Plus className="h-4 w-4 mr-2" />
+              )}
+              Tải lên
+            </Button>
+          </div>
+        </form>
+
+        <div className="mt-6">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+            </div>
+          ) : files.length === 0 ? (
+            <div className="text-center text-gray-600 py-8">
+              Chưa có file nào
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {files.map((f) => (
+                <div
+                  key={f.id}
+                  className="flex items-center justify-between p-3 border rounded"
+                >
+                  <div className="flex items-center space-x-3">
+                    <FileIcon className="h-5 w-5 text-gray-600" />
+                    <div>
+                      <div className="font-medium">{f.title}</div>
+                      <div className="text-xs text-gray-500">
+                        {f.file_name} • {(f.file_size / 1024 / 1024).toFixed(2)}{' '}
+                        MB • {new Date(f.created_at).toLocaleString('vi-VN')}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <a href={f.public_url} target="_blank" rel="noreferrer">
+                      <Button variant="outline" size="sm">
+                        <ExternalLink className="h-4 w-4 mr-1" />
+                        Xem
+                      </Button>
+                    </a>
+                    <a href={f.public_url} download>
+                      <Button variant="outline" size="sm">
+                        <Download className="h-4 w-4 mr-1" />
+                        Tải
+                      </Button>
+                    </a>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => del.mutate(f.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ----- Keywords admin section (inline) -----
+function KeywordsAdminSection() {
+  const { lessons } = useLessons();
+  // lấy list topic từ lessons (nếu cần) hoặc đọc từ statsApi.getTopicStats đã có ở trên (topicStats)
+  // Ở đây dựa vào stats đã fetch sẵn qua useStats
+  const { topicStats, isLoading: isLoadingStats } = useStats();
+
+  const [activeTopicId, setActiveTopicId] = useState<number | null>(null);
+  const { keywords, isLoading } = useKeywordsByTopic(activeTopicId);
+  const createKeyword = useCreateKeyword();
+  const updateKeyword = useUpdateKeyword();
+  const deleteKeyword = useDeleteKeyword();
+
+  const [form, setForm] = useState<{
+    term: string;
+    definition: string;
+    id?: number;
+  }>({ term: '', definition: '' });
+  const isEditing = typeof form.id === 'number';
+
+  return (
+    <div className="grid md:grid-cols-3 gap-6">
+      <Card className="md:col-span-1">
+        <CardHeader>
+          <CardTitle>Chủ đề</CardTitle>
+          <CardDescription>Chọn chủ đề để quản lý từ khóa</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {isLoadingStats ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {topicStats?.map((t) => (
+                <button
+                  key={t.id}
+                  className={`w-full text-left p-3 border rounded hover:bg-gray-50 ${
+                    activeTopicId === t.id ? 'border-green-400 bg-green-50' : ''
+                  }`}
+                  onClick={() => setActiveTopicId(t.id)}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium">{t.title}</span>
+                    <Badge variant="secondary">{t.keywords} từ khóa</Badge>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="md:col-span-2">
+        <CardHeader>
+          <CardTitle>Từ khóa theo chủ đề</CardTitle>
+          <CardDescription>
+            {activeTopicId
+              ? 'Thêm/sửa/xóa từ khóa cho chủ đề đã chọn'
+              : 'Chọn một chủ đề ở cột bên trái'}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {!activeTopicId ? (
+            <div className="text-gray-600">Hãy chọn một chủ đề để bắt đầu.</div>
+          ) : (
+            <div className="space-y-6">
+              {/* Form add/edit */}
+              <form
+                className="grid gap-4 md:grid-cols-2 items-end"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (!form.term.trim() || !form.definition.trim()) {
+                    return toast.error(
+                      'Vui lòng nhập đầy đủ Term và Định nghĩa'
+                    );
+                  }
+                  if (isEditing && form.id) {
+                    updateKeyword.mutate(
+                      {
+                        id: form.id,
+                        term: form.term,
+                        definition: form.definition,
+                        topic_id: activeTopicId,
+                      },
+                      {
+                        onSuccess: () => {
+                          toast.success('Cập nhật từ khóa thành công');
+                          setForm({ term: '', definition: '' });
+                        },
+                        onError: () => toast.error('Lỗi khi cập nhật từ khóa'),
+                      }
+                    );
+                  } else {
+                    createKeyword.mutate(
+                      {
+                        topic_id: activeTopicId,
+                        term: form.term,
+                        definition: form.definition,
+                      },
+                      {
+                        onSuccess: () => {
+                          toast.success('Thêm từ khóa thành công');
+                          setForm({ term: '', definition: '' });
+                        },
+                        onError: () => toast.error('Lỗi khi thêm từ khóa'),
+                      }
+                    );
+                  }
+                }}
+              >
+                <div>
+                  <Label htmlFor="kw-term">Từ khóa</Label>
+                  <Input
+                    id="kw-term"
+                    value={form.term}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, term: e.target.value }))
+                    }
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="kw-def">Định nghĩa</Label>
+                  <Input
+                    id="kw-def"
+                    value={form.definition}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, definition: e.target.value }))
+                    }
+                  />
+                </div>
+                <div className="md:col-span-2 flex space-x-2">
+                  <Button type="submit">
+                    {isEditing ? (
+                      <>
+                        <Edit className="h-4 w-4 mr-2" /> Cập nhật
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="h-4 w-4 mr-2" /> Thêm mới
+                      </>
+                    )}
+                  </Button>
+                  {isEditing && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setForm({ term: '', definition: '' })}
+                    >
+                      Hủy
+                    </Button>
+                  )}
+                </div>
+              </form>
+
+              {/* List keywords */}
+              {isLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+                </div>
+              ) : keywords.length === 0 ? (
+                <div className="text-gray-600">Chưa có từ khóa nào.</div>
+              ) : (
+                <div className="space-y-2">
+                  {keywords.map((k) => (
+                    <div
+                      key={k.id}
+                      className="p-3 border rounded flex items-center justify-between"
+                    >
+                      <div>
+                        <div className="font-medium">{k.term}</div>
+                        <div className="text-sm text-gray-600">
+                          {k.definition}
+                        </div>
+                      </div>
+                      <div className="flex space-x-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            setForm({
+                              id: k.id,
+                              term: k.term,
+                              definition: k.definition,
+                            })
+                          }
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            if (confirm('Xóa từ khóa này?')) {
+                              deleteKeyword.mutate(
+                                { id: k.id, topic_id: k.topic_id },
+                                {
+                                  onSuccess: () =>
+                                    toast.success('Đã xóa từ khóa'),
+                                  onError: () => toast.error('Xóa thất bại'),
+                                }
+                              );
+                            }
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
