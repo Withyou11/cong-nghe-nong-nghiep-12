@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { lessonsApi, lessonDiagramsApi, Lesson } from '@/lib/api';
+import { lessonsApi, lessonDiagramsApi, lessonPowerpointsApi, Lesson } from '@/lib/api';
 import { toast } from 'sonner';
 
 export const useLessons = () => {
@@ -82,6 +82,41 @@ export const useLessons = () => {
     },
   });
 
+  const uploadLessonPowerpoint = useMutation({
+    mutationFn: ({ lessonId, file }: { lessonId: number; file: File }) =>
+      lessonPowerpointsApi.upload(lessonId, file),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['lessons'] });
+      toast.success('Đã cập nhật PowerPoint bài học!');
+    },
+    onError: (error: any) => {
+      const errorMessage = error?.message || '';
+      const isBucketNotFound = error?.statusCode === '404' || errorMessage.includes('Bucket not found');
+      
+      if (isBucketNotFound) {
+        toast.error(
+          'Bucket "lesson-powerpoints" chưa được tạo! Vui lòng tạo bucket trong Supabase Dashboard: Storage → New bucket → tên "lesson-powerpoints" → bật Public → Create.',
+          { duration: 8000 }
+        );
+      } else {
+        toast.error('Không thể tải lên PowerPoint. Vui lòng thử lại.');
+      }
+      console.error('Error uploading lesson powerpoint:', error);
+    },
+  });
+
+  const removeLessonPowerpoint = useMutation({
+    mutationFn: (lessonId: number) => lessonPowerpointsApi.remove(lessonId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['lessons'] });
+      toast.success('Đã xóa PowerPoint bài học.');
+    },
+    onError: (error) => {
+      toast.error('Không thể xóa PowerPoint.');
+      console.error('Error removing lesson powerpoint:', error);
+    },
+  });
+
   return {
     lessons,
     isLoading,
@@ -90,5 +125,7 @@ export const useLessons = () => {
     deleteLesson,
     uploadLessonDiagram,
     removeLessonDiagram,
+    uploadLessonPowerpoint,
+    removeLessonPowerpoint,
   };
 };

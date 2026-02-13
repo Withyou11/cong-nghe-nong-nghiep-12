@@ -34,6 +34,7 @@ export interface Lesson {
   topic_id: number;
   duration: string;
   summary_diagram_url?: string | null;
+  powerpoint_url?: string | null;
   created_at: string;
   updated_at: string;
   topics?: Topic;
@@ -423,6 +424,44 @@ export const lessonDiagramsApi = {
   remove: async (lessonId: number): Promise<Lesson> => {
     const updated = await lessonsApi.update(String(lessonId), {
       summary_diagram_url: null,
+    });
+    return updated as Lesson;
+  },
+};
+
+const LESSON_POWERPOINTS_BUCKET = 'lesson-powerpoints';
+
+/** Upload PowerPoint bài học: upload Storage + cập nhật lesson.powerpoint_url */
+export const lessonPowerpointsApi = {
+  upload: async (lessonId: number, file: File): Promise<Lesson> => {
+    const ext = file.name.split('.').pop()?.toLowerCase() || 'bin';
+    const safeName = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9_.-]/g, '_')}`;
+    const path = `${lessonId}/${safeName}`;
+
+    const { data: storageUpload, error: storageError } = await supabase.storage
+      .from(LESSON_POWERPOINTS_BUCKET)
+      .upload(path, file, {
+        cacheControl: '3600',
+        upsert: true,
+        contentType: file.type || `application/vnd.openxmlformats-officedocument.presentationml.presentation`,
+      });
+
+    if (storageError) throw storageError;
+
+    const { data: { publicUrl } } = supabase.storage
+      .from(LESSON_POWERPOINTS_BUCKET)
+      .getPublicUrl(storageUpload?.path || path);
+
+    const updated = await lessonsApi.update(String(lessonId), {
+      powerpoint_url: publicUrl,
+    });
+    return updated as Lesson;
+  },
+
+  /** Xóa PowerPoint (chỉ xóa URL trong DB; file trong Storage giữ lại hoặc xóa thủ công nếu cần) */
+  remove: async (lessonId: number): Promise<Lesson> => {
+    const updated = await lessonsApi.update(String(lessonId), {
+      powerpoint_url: null,
     });
     return updated as Lesson;
   },

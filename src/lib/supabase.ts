@@ -42,6 +42,7 @@ export type Database = {
           content: string;
           duration: string;
           summary_diagram_url: string | null;
+          powerpoint_url: string | null;
           created_at: string;
           updated_at: string;
         };

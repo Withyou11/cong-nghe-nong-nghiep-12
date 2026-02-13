@@ -24,7 +24,9 @@ const Lessons = () => {
   const topic = topics.find((t) => t.id === parseInt(id || '0'));
   const { lessons, isLoading } = useLessons();
   const topicLessons =
-    lessons?.filter((l) => l.topic_id === parseInt(id || '0')) || [];
+    lessons
+      ?.filter((l) => l.topic_id === parseInt(id || '0'))
+      .sort((a, b) => a.title.localeCompare(b.title, 'vi', { numeric: true })) || [];
 
   useEffect(() => {
     window.scrollTo(0, 0);

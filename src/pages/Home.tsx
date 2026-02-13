@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import {
@@ -9,6 +9,12 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { TopicCard } from '@/components/TopicCard';
 import { StatsCard } from '@/components/StatsCard';
 import { topics } from '@/data/topics';
@@ -26,14 +32,19 @@ import {
   Leaf,
   Fish,
   Loader2,
+  Download,
 } from 'lucide-react';
 import { useLessons } from '@/hooks/useLessons';
 import { useQuizzes } from '@/hooks/useQuizzes';
 import { useKeywords } from '@/hooks/useKeywords';
 import { useTopicSummary } from '@/hooks/useTopicStats';
 import { useExamFiles } from '@/hooks/useExamFiles';
+import type { ExamFileMeta } from '@/lib/api';
 
 const Home = () => {
+  const [selectedFile, setSelectedFile] = useState<ExamFileMeta | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
@@ -43,6 +54,16 @@ const Home = () => {
   const { keywords, isLoading: isLoadingKeywords } = useKeywords();
   const { topicSummary, isLoading: isLoadingTopicSummary } = useTopicSummary();
   const { files: examFiles, isLoading: isLoadingExamFiles } = useExamFiles();
+
+  const handleViewFile = (file: ExamFileMeta) => {
+    setSelectedFile(file);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedFile(null);
+  };
 
   // Tính tổng số câu hỏi từ topicSummary
   const totalQuestions =
@@ -227,7 +248,7 @@ const Home = () => {
             <h2 className="text-2xl md:text-3xl font-bold text-gray-900">
               Đề thi THPTQG (Giáo viên tải lên)
             </h2>
-            <Link to="/topic/1/quizzes">
+            <Link to="/exam-files">
               <Button variant="outline">Xem thêm</Button>
             </Link>
           </div>
@@ -255,11 +276,13 @@ const Home = () => {
                     <div className="text-xs text-gray-500">
                       {(f.file_size / 1024 / 1024).toFixed(2)} MB
                     </div>
-                    <a href={f.public_url} target="_blank" rel="noreferrer">
-                      <Button size="sm" variant="outline">
-                        <ExternalLink className="h-4 w-4 mr-1" /> Xem
-                      </Button>
-                    </a>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleViewFile(f)}
+                    >
+                      <ExternalLink className="h-4 w-4 mr-1" /> Xem
+                    </Button>
                   </CardContent>
                 </Card>
               ))}
@@ -339,6 +362,47 @@ const Home = () => {
           </div>
         </div>
       </section>
+
+      {/* PDF Viewer Modal */}
+      {selectedFile && (
+        <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+          <DialogContent className="max-w-[95vw] w-full max-h-[95vh] h-full p-0 flex flex-col">
+            <DialogHeader className="px-6 pt-6 pb-4 border-b flex-shrink-0">
+              <div className="flex items-center justify-between">
+                <DialogTitle className="text-lg font-semibold pr-4">
+                  {selectedFile.title}
+                </DialogTitle>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <a
+                    href={selectedFile.public_url}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    <Button variant="outline" size="sm">
+                      <ExternalLink className="h-4 w-4 mr-1" />
+                      Mở tab mới
+                    </Button>
+                  </a>
+                  <a href={selectedFile.public_url} download>
+                    <Button variant="outline" size="sm">
+                      <Download className="h-4 w-4 mr-1" />
+                      Tải về
+                    </Button>
+                  </a>
+                </div>
+              </div>
+            </DialogHeader>
+            <div className="flex-1 overflow-hidden p-4">
+              <iframe
+                src={`${selectedFile.public_url}#toolbar=0`}
+                className="w-full h-full border border-gray-200 rounded"
+                title={selectedFile.title}
+                style={{ minHeight: '70vh' }}
+              />
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 };

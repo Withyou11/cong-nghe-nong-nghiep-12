@@ -1,5 +1,4 @@
-import React from 'react';
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Card,
   CardContent,
@@ -47,6 +46,7 @@ import {
   File as FileIcon,
   Download,
   ExternalLink,
+  Presentation,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -88,6 +88,13 @@ const Admin = () => {
     recentActivity,
     isLoading: isLoadingStats,
   } = useStats();
+
+  // Sắp xếp bài học theo tên
+  const sortedLessons = lessons
+    ? [...lessons].sort((a, b) =>
+        a.title.localeCompare(b.title, 'vi', { numeric: true })
+      )
+    : [];
 
   const createQuizMutation = useCreateQuiz();
   const updateQuizMutation = useUpdateQuiz();
@@ -333,7 +340,7 @@ const Admin = () => {
 
         {/* Management Tabs */}
         <Tabs defaultValue="lessons" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger
               value="lessons"
               className="flex items-center space-x-2"
@@ -358,6 +365,13 @@ const Admin = () => {
             <TabsTrigger value="stats" className="flex items-center space-x-2">
               <BarChart3 className="h-4 w-4" />
               <span>Thống kê</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="powerpoints"
+              className="flex items-center space-x-2"
+            >
+              <Presentation className="h-4 w-4" />
+              <span>PowerPoint</span>
             </TabsTrigger>
             <TabsTrigger
               value="exam-files"
@@ -392,7 +406,7 @@ const Admin = () => {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {lessons?.map((lesson) => (
+                    {sortedLessons.map((lesson) => (
                       <div
                         key={lesson.id}
                         className="flex items-center justify-between p-4 border rounded-lg"
@@ -450,6 +464,11 @@ const Admin = () => {
             </Card>
           </TabsContent>
 
+          {/* PowerPoint Management */}
+          <TabsContent value="powerpoints">
+            <PowerPointManagementSection />
+          </TabsContent>
+
           {/* Exam Files Management */}
           <TabsContent value="exam-files">
             <ExamFilesSection />
@@ -475,7 +494,7 @@ const Admin = () => {
                   </div>
                 ) : (
                   <div className="space-y-6">
-                    {lessons?.map((lesson) => {
+                    {sortedLessons.map((lesson) => {
                       const lessonQuizzesForLesson =
                         quizzes?.filter((q) => q.lesson_id === lesson.id) || [];
                       const totalQuestions = lessonQuizzesForLesson.reduce(
@@ -842,6 +861,165 @@ const Admin = () => {
 };
 
 export default Admin;
+
+// ----- PowerPoint management section (inline component) -----
+function PowerPointManagementSection() {
+  const { lessons, isLoading, uploadLessonPowerpoint, removeLessonPowerpoint } = useLessons();
+  const [selectedLessonId, setSelectedLessonId] = useState<number | null>(null);
+  const fileInputRefs = React.useRef<Record<number, HTMLInputElement | null>>({});
+
+  const handleFileSelect = (lessonId: number, file: File | null) => {
+    if (!file) return;
+    
+    // Validate file type
+    const validTypes = [
+      'application/vnd.ms-powerpoint',
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      'application/vnd.ms-powerpoint.presentation.macroEnabled.12',
+    ];
+    const validExtensions = ['.ppt', '.pptx'];
+    const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase();
+    
+    if (!validTypes.includes(file.type) && !validExtensions.includes(fileExtension)) {
+      toast.error('Vui lòng chọn file PowerPoint (.ppt hoặc .pptx)');
+      return;
+    }
+
+    setSelectedLessonId(lessonId);
+    uploadLessonPowerpoint.mutate(
+      { lessonId, file },
+      {
+        onSuccess: () => {
+          setSelectedLessonId(null);
+        },
+        onError: () => {
+          setSelectedLessonId(null);
+        },
+      }
+    );
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Quản lý PowerPoint bài học</CardTitle>
+        <CardDescription>
+          Tải lên file PowerPoint cho từng bài học. Mỗi bài học chỉ có thể có một file PowerPoint.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+          </div>
+        ) : lessons && lessons.length > 0 ? (
+          <div className="space-y-4">
+            {[...lessons].sort((a, b) =>
+              a.title.localeCompare(b.title, 'vi', { numeric: true })
+            ).map((lesson) => (
+              <div
+                key={lesson.id}
+                className="border rounded-lg p-4 hover:bg-gray-50 transition-colors"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center space-x-2">
+                      <h3 className="font-medium text-lg">{lesson.title}</h3>
+                      <Badge variant="secondary">{lesson.topics?.title}</Badge>
+                    </div>
+                    {lesson.powerpoint_url ? (
+                      <div className="mt-2 flex items-center space-x-2">
+                        <Presentation className="h-4 w-4 text-green-600" />
+                        <span className="text-sm text-gray-600">
+                          Đã có PowerPoint
+                        </span>
+                        <a
+                          href={lesson.powerpoint_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-sm text-blue-600 hover:underline ml-2"
+                        >
+                          Xem/Tải về
+                        </a>
+                      </div>
+                    ) : (
+                      <div className="mt-2 flex items-center space-x-2">
+                        <Presentation className="h-4 w-4 text-gray-400" />
+                        <span className="text-sm text-gray-500">
+                          Chưa có PowerPoint
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      ref={(el) => {
+                        fileInputRefs.current[lesson.id] = el;
+                      }}
+                      type="file"
+                      accept=".ppt,.pptx,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0] || null;
+                        handleFileSelect(lesson.id, file);
+                        e.target.value = '';
+                      }}
+                    />
+                    {lesson.powerpoint_url ? (
+                      <>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => fileInputRefs.current[lesson.id]?.click()}
+                          disabled={uploadLessonPowerpoint.isPending}
+                        >
+                          {uploadLessonPowerpoint.isPending &&
+                          selectedLessonId === lesson.id ? (
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          ) : (
+                            <Edit className="h-4 w-4 mr-2" />
+                          )}
+                          Thay đổi
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => removeLessonPowerpoint.mutate(lesson.id)}
+                          disabled={removeLessonPowerpoint.isPending}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => fileInputRefs.current[lesson.id]?.click()}
+                        disabled={uploadLessonPowerpoint.isPending}
+                      >
+                        {uploadLessonPowerpoint.isPending &&
+                        selectedLessonId === lesson.id ? (
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        ) : (
+                          <Plus className="h-4 w-4 mr-2" />
+                        )}
+                        Tải lên PowerPoint
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center text-gray-600 py-8">
+            Chưa có bài học nào
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 // ----- Exam files admin section (inline component) -----
 function ExamFilesSection() {

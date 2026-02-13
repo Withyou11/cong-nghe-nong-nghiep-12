@@ -13,6 +13,7 @@ import Quizzes from './pages/Quizzes';
 import Keywords from './pages/Keywords';
 import Chat from './pages/Chat';
 import Admin from './pages/Admin';
+import ExamFiles from './pages/ExamFiles';
 import NotFound from './pages/NotFound';
 
 const queryClient = new QueryClient();
@@ -35,6 +36,7 @@ const App = () => (
               <Route path="/lesson/:id" element={<LessonDetail />} />
               <Route path="/chat" element={<Chat />} />
               <Route path="/admin" element={<Admin />} />
+              <Route path="/exam-files" element={<ExamFiles />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
