@@ -1,5 +1,5 @@
 // src/components/LessonForm.tsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Editor } from './Editor';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,9 +13,11 @@ import {
 } from '@/components/ui/select';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
+import { ImagePlus, Loader2, Trash2 } from 'lucide-react';
 import type { EditorContent } from '@/types/editor';
 import type { JSONContent } from '@tiptap/core';
 import type { Lesson } from '@/lib/api';
+import { useLessons } from '@/hooks/useLessons';
 
 interface Topic {
   id: number;
@@ -35,6 +37,8 @@ export function LessonForm({ onSuccess, onCancel, lesson }: LessonFormProps) {
   const [topicId, setTopicId] = useState<string>('');
   const [topics, setTopics] = useState<Topic[]>([]);
   const [loading, setLoading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { uploadLessonDiagram, removeLessonDiagram } = useLessons();
 
   useEffect(() => {
     if (lesson && topics.length > 0) {
@@ -184,6 +188,81 @@ export function LessonForm({ onSuccess, onCancel, lesson }: LessonFormProps) {
         <Label>Nội dung bài học</Label>
         <Editor content={content} onChange={setContent} />
       </div>
+
+      {lesson && (
+        <div className="space-y-2 rounded-lg border p-4 bg-muted/30">
+          <Label>Sơ đồ tổng hợp bài học</Label>
+          <p className="text-sm text-muted-foreground">
+            Học sinh sẽ xem ảnh này tại trang chi tiết bài học.
+          </p>
+          {lesson.summary_diagram_url ? (
+            <div className="space-y-2">
+              <img
+                src={lesson.summary_diagram_url}
+                alt="Sơ đồ tổng hợp"
+                className="max-h-48 rounded border object-contain bg-white"
+              />
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadLessonDiagram.isPending}
+                >
+                  {uploadLessonDiagram.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <ImagePlus className="h-4 w-4" />
+                  )}
+                  Thay ảnh khác
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => removeLessonDiagram.mutate(lesson.id)}
+                  disabled={removeLessonDiagram.isPending}
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Xóa sơ đồ
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file && lesson.id) {
+                    uploadLessonDiagram.mutate(
+                      { lessonId: lesson.id, file }
+                    );
+                    e.target.value = '';
+                  }
+                }}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploadLessonDiagram.isPending}
+              >
+                {uploadLessonDiagram.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <ImagePlus className="h-4 w-4 mr-2" />
+                )}
+                Tải lên ảnh sơ đồ
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="flex justify-end space-x-2">
         <Button type="button" variant="outline" onClick={onCancel}>

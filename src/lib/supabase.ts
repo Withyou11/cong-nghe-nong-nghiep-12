@@ -41,6 +41,7 @@ export type Database = {
           title: string;
           content: string;
           duration: string;
+          summary_diagram_url: string | null;
           created_at: string;
           updated_at: string;
         };

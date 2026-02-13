@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { lessonsApi, Lesson } from '@/lib/api';
+import { lessonsApi, lessonDiagramsApi, Lesson } from '@/lib/api';
 import { toast } from 'sonner';
 
 export const useLessons = () => {
@@ -47,11 +47,48 @@ export const useLessons = () => {
     },
   });
 
+  const uploadLessonDiagram = useMutation({
+    mutationFn: ({ lessonId, file }: { lessonId: number; file: File }) =>
+      lessonDiagramsApi.upload(lessonId, file),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['lessons'] });
+      toast.success('Đã cập nhật sơ đồ tổng hợp bài học!');
+    },
+    onError: (error: any) => {
+      const errorMessage = error?.message || '';
+      const isBucketNotFound = error?.statusCode === '404' || errorMessage.includes('Bucket not found');
+      
+      if (isBucketNotFound) {
+        toast.error(
+          'Bucket "lesson-diagrams" chưa được tạo! Vui lòng tạo bucket trong Supabase Dashboard: Storage → New bucket → tên "lesson-diagrams" → bật Public → Create.',
+          { duration: 8000 }
+        );
+      } else {
+        toast.error('Không thể tải lên sơ đồ. Vui lòng thử lại.');
+      }
+      console.error('Error uploading lesson diagram:', error);
+    },
+  });
+
+  const removeLessonDiagram = useMutation({
+    mutationFn: (lessonId: number) => lessonDiagramsApi.remove(lessonId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['lessons'] });
+      toast.success('Đã xóa sơ đồ tổng hợp bài học.');
+    },
+    onError: (error) => {
+      toast.error('Không thể xóa sơ đồ.');
+      console.error('Error removing lesson diagram:', error);
+    },
+  });
+
   return {
     lessons,
     isLoading,
     createLesson,
     updateLesson,
     deleteLesson,
+    uploadLessonDiagram,
+    removeLessonDiagram,
   };
 };

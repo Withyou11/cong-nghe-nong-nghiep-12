@@ -60,7 +60,33 @@ export function useTopicSummary() {
   const { data: topicSummary, isLoading } = useQuery({
     queryKey: ['topic-summary'],
     queryFn: async () => {
-      // Lấy tổng hợp theo topic
+      // BƯỚC 1: Đếm lessons cho TẤT CẢ các topic trước (bao gồm cả topic không có quiz)
+      const { data: lessonsData, error: lessonsError } = await supabase
+        .from('lessons')
+        .select('topic_id')
+        .order('topic_id');
+
+      if (lessonsError) {
+        throw lessonsError;
+      }
+
+      // Khởi tạo map với TẤT CẢ các topic có lessons
+      const topicMap = new Map<number, TopicSummary>();
+      lessonsData.forEach((lesson: any) => {
+        const topicId = lesson.topic_id;
+        if (!topicMap.has(topicId)) {
+          topicMap.set(topicId, {
+            topic_id: topicId,
+            total_lessons: 0,
+            total_quizzes: 0,
+            total_questions: 0,
+          });
+        }
+        const existing = topicMap.get(topicId)!;
+        existing.total_lessons += 1;
+      });
+
+      // BƯỚC 2: Thêm quiz và question stats vào các topic có quiz
       const { data: summaryData, error: summaryError } = await supabase.from(
         'quizzes'
       ).select(`
@@ -74,44 +100,23 @@ export function useTopicSummary() {
         throw summaryError;
       }
 
-      // Nhóm theo topic_id
-      const topicMap = new Map<number, TopicSummary>();
-
       summaryData.forEach((item: any) => {
         const topicId = item.lessons.topic_id;
         const questionCount = item.questions[0]?.count || 0;
 
-        if (topicMap.has(topicId)) {
-          const existing = topicMap.get(topicId)!;
-          existing.total_quizzes += 1;
-          existing.total_questions += questionCount;
-        } else {
+        // Đảm bảo topic có trong map (nếu không có lesson nhưng có quiz)
+        if (!topicMap.has(topicId)) {
           topicMap.set(topicId, {
             topic_id: topicId,
-            total_lessons: 0, // Sẽ tính sau
-            total_quizzes: 1,
-            total_questions: questionCount,
+            total_lessons: 0,
+            total_quizzes: 0,
+            total_questions: 0,
           });
         }
-      });
 
-      // Lấy số lượng lessons cho mỗi topic
-      const { data: lessonsData, error: lessonsError } = await supabase
-        .from('lessons')
-        .select('topic_id')
-        .order('topic_id');
-
-      if (lessonsError) {
-        throw lessonsError;
-      }
-
-      // Cập nhật số lượng lessons
-      lessonsData.forEach((lesson: any) => {
-        const topicId = lesson.topic_id;
-        if (topicMap.has(topicId)) {
-          const existing = topicMap.get(topicId)!;
-          existing.total_lessons += 1;
-        }
+        const existing = topicMap.get(topicId)!;
+        existing.total_quizzes += 1;
+        existing.total_questions += questionCount;
       });
 
       return Array.from(topicMap.values());

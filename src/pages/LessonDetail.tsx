@@ -59,10 +59,24 @@ const LessonDetail = () => {
   }
 
   let parsedContent: any = null;
+  let parseError: string | null = null;
+  
   try {
-    parsedContent = JSON.parse(lesson.content);
+    if (lesson.content) {
+      parsedContent = JSON.parse(lesson.content);
+      // Kiểm tra nếu content là object rỗng hoặc không hợp lệ
+      if (typeof parsedContent !== 'object' || parsedContent === null) {
+        parseError = 'Nội dung bài học không hợp lệ';
+        parsedContent = null;
+      }
+    } else {
+      parseError = 'Bài học này chưa có nội dung';
+    }
   } catch (error) {
     console.error('Error parsing lesson content:', error);
+    console.error('Raw content:', lesson.content);
+    parseError = 'Không thể đọc nội dung bài học. Vui lòng liên hệ quản trị viên.';
+    parsedContent = null;
   }
 
   return (
@@ -97,15 +111,46 @@ const LessonDetail = () => {
 
       {/* Content */}
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Sơ đồ tổng hợp bài học */}
+        {lesson.summary_diagram_url && (
+          <Card className="mb-8">
+            <CardContent className="p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-3 flex items-center">
+                <BookOpen className="h-5 w-5 mr-2 text-green-600" />
+                Sơ đồ tổng hợp bài học
+              </h2>
+              <div className="rounded-lg border bg-white overflow-hidden">
+                <img
+                  src={lesson.summary_diagram_url}
+                  alt="Sơ đồ tổng hợp bài học"
+                  className="w-full h-auto object-contain max-h-[70vh]"
+                />
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Lesson Content */}
         <Card className="mb-8">
           <CardContent className="p-8">
             {parsedContent ? (
               <ReadOnlyEditor content={parsedContent} />
             ) : (
-              <p className="text-red-500">
-                Không thể hiển thị nội dung bài học
-              </p>
+              <div className="text-center py-8">
+                <p className="text-red-500 font-medium mb-2">
+                  {parseError || 'Không thể hiển thị nội dung bài học'}
+                </p>
+                {lesson.content && (
+                  <details className="mt-4 text-left">
+                    <summary className="text-sm text-gray-500 cursor-pointer">
+                      Xem nội dung thô (debug)
+                    </summary>
+                    <pre className="mt-2 p-4 bg-gray-100 rounded text-xs overflow-auto max-h-48">
+                      {lesson.content}
+                    </pre>
+                  </details>
+                )}
+              </div>
             )}
           </CardContent>
         </Card>

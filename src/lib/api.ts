@@ -33,6 +33,7 @@ export interface Lesson {
   content: string;
   topic_id: number;
   duration: string;
+  summary_diagram_url?: string | null;
   created_at: string;
   updated_at: string;
   topics?: Topic;
@@ -386,6 +387,44 @@ export const lessonsApi = {
     const { error } = await supabase.from('lessons').delete().eq('id', id);
 
     if (error) throw error;
+  },
+};
+
+const LESSON_DIAGRAMS_BUCKET = 'lesson-diagrams';
+
+/** Upload ảnh sơ đồ tổng hợp bài học: upload Storage + cập nhật lesson.summary_diagram_url */
+export const lessonDiagramsApi = {
+  upload: async (lessonId: number, file: File): Promise<Lesson> => {
+    const ext = file.name.split('.').pop()?.toLowerCase() || 'bin';
+    const safeName = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9_.-]/g, '_')}`;
+    const path = `${lessonId}/${safeName}`;
+
+    const { data: storageUpload, error: storageError } = await supabase.storage
+      .from(LESSON_DIAGRAMS_BUCKET)
+      .upload(path, file, {
+        cacheControl: '3600',
+        upsert: true,
+        contentType: file.type || `image/${ext}`,
+      });
+
+    if (storageError) throw storageError;
+
+    const { data: { publicUrl } } = supabase.storage
+      .from(LESSON_DIAGRAMS_BUCKET)
+      .getPublicUrl(storageUpload?.path || path);
+
+    const updated = await lessonsApi.update(String(lessonId), {
+      summary_diagram_url: publicUrl,
+    });
+    return updated as Lesson;
+  },
+
+  /** Xóa sơ đồ (chỉ xóa URL trong DB; file trong Storage giữ lại hoặc xóa thủ công nếu cần) */
+  remove: async (lessonId: number): Promise<Lesson> => {
+    const updated = await lessonsApi.update(String(lessonId), {
+      summary_diagram_url: null,
+    });
+    return updated as Lesson;
   },
 };
 

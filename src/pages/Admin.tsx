@@ -97,6 +97,16 @@ const Admin = () => {
     window.scrollTo(0, 0);
   }, []);
 
+  // Đồng bộ selectedLesson với dữ liệu lessons mới (sau khi upload/xóa sơ đồ)
+  useEffect(() => {
+    if (lessons && selectedLesson) {
+      const updated = lessons.find((l) => l.id === selectedLesson.id);
+      if (updated && updated !== selectedLesson) {
+        setSelectedLesson(updated);
+      }
+    }
+  }, [lessons, selectedLesson?.id]);
+
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     if (loginForm.username === 'giaovien' && loginForm.password === '123456') {
